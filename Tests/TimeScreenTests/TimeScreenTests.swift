@@ -41,6 +41,22 @@ final class DatabaseTests: XCTestCase {
         XCTAssertNil(boxes)
     }
 
+    func testSearchCanBeLimitedByDate() async throws {
+        let db = try makeDatabase()
+        let now = Date()
+        try await db.insert(date: now.addingTimeInterval(-10 * 86_400), app: "Safari", title: "", path: "old.jpg", text: "budget notes")
+        try await db.insert(date: now, app: "Safari", title: "", path: "new.jpg", text: "budget notes")
+        let all = try await db.search("budget")
+        XCTAssertEqual(all.count, 2)
+        let recent = try await db.search("budget", from: now.addingTimeInterval(-86_400))
+        XCTAssertEqual(recent.map(\.frame.path), ["new.jpg"])
+        let before = try await db.search("budget", to: now.addingTimeInterval(-86_400))
+        XCTAssertEqual(before.map(\.frame.path), ["old.jpg"])
+        let apps = try await db.apps()
+        XCTAssertEqual(apps.first?.app, "Safari")
+        XCTAssertEqual(apps.first?.count, 2)
+    }
+
     func testMatchExpression() {
         XCTAssertNil(Database.matchExpression("   "))
         XCTAssertEqual(Database.matchExpression("hello wor\"ld"), "\"hello\"* \"world\"*")
@@ -256,5 +272,20 @@ final class WindowInfoTests: XCTestCase {
         XCTAssertTrue(Windows.isPrivate(title: "Docs — Private Browsing", keywords: keywords))
         XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: keywords))
         XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: [""]))
+    }
+}
+
+final class SearchRangeTests: XCTestCase {
+    func testBounds() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let day = calendar.startOfDay(for: now.addingTimeInterval(-5 * 86_400))
+        XCTAssertNil(SearchRange.anyTime.bounds(day: day, now: now, calendar: calendar).from)
+        XCTAssertEqual(SearchRange.today.bounds(day: day, now: now, calendar: calendar).from, calendar.startOfDay(for: now))
+        XCTAssertEqual(SearchRange.week.bounds(day: day, now: now, calendar: calendar).from, now.addingTimeInterval(-7 * 86_400))
+        let selected = SearchRange.selectedDay.bounds(day: day, now: now, calendar: calendar)
+        XCTAssertEqual(selected.from, day)
+        XCTAssertEqual(selected.to, day.addingTimeInterval(86_400))
     }
 }

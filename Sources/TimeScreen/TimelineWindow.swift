@@ -15,6 +15,9 @@ struct TimelineWindow: View {
     @State private var loadedFrames: [Frame] = []
     @State private var display = 0
     @State private var appFilter: String?
+    @State private var searchApp: String?
+    @State private var searchRange = SearchRange.anyTime
+    @State private var allApps: [(app: String, count: Int)] = []
     @State private var selectedID: Int64?
     @State private var pendingFrameID: Int64?
     @State private var pendingDisplay: Int?
@@ -79,7 +82,7 @@ struct TimelineWindow: View {
         .onAppear { focused = true }
         .task { await reloadDays() }
         .task(id: day) { await loadDay() }
-        .task(id: SearchKey(query: query, app: appFilter)) { await runSearch() }
+        .task(id: SearchKey(query: query, app: searchApp, range: searchRange, day: day)) { await runSearch() }
         .onChange(of: appFilter) { keepSelectionVisible() }
         .task(id: selectedID) { await loadImage() }
         .task(id: BoxKey(id: selectedID, searching: isSearching)) { await loadBoxes() }
@@ -311,6 +314,34 @@ struct TimelineWindow: View {
     }
 
     private var resultsList: some View {
+        VStack(spacing: 0) {
+            searchFilters
+            resultRows
+        }
+        .frame(width: 320)
+    }
+
+    private var searchFilters: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                Picker("When", selection: $searchRange) {
+                    ForEach(SearchRange.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.menu).labelsHidden().fixedSize()
+                Picker("App", selection: $searchApp) {
+                    Text("Any app").tag(String?.none)
+                    ForEach(allApps, id: \.app) { Text($0.app).tag(Optional($0.app)) }
+                }
+                .pickerStyle(.menu).labelsHidden().fixedSize()
+                Spacer()
+            }
+            Text(hits.count >= 200 ? "200+ results" : "\(hits.count) \(hits.count == 1 ? "result" : "results")")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
+    private var resultRows: some View {
         List(hits) { hit in
             Button { jump(to: hit.frame) } label: {
                 VStack(alignment: .leading, spacing: 2) {
@@ -326,7 +357,6 @@ struct TimelineWindow: View {
         }
         .scrollContentBackground(.hidden)
         .overlay { if hits.isEmpty { Text("No matches").foregroundStyle(.secondary) } }
-        .frame(width: 320)
     }
 
 
@@ -372,6 +402,7 @@ struct TimelineWindow: View {
         let today = Calendar.current.startOfDay(for: Date())
         if !loaded.contains(today) { loaded.insert(today, at: 0) }
         days = loaded
+        allApps = (try? await recorder.db.apps()) ?? []
     }
 
     private func loadDay() async {
@@ -400,7 +431,8 @@ struct TimelineWindow: View {
         guard isSearching else { hits = []; return }
         try? await Task.sleep(nanoseconds: 250_000_000)
         guard !Task.isCancelled else { return }
-        hits = (try? await recorder.db.search(query, app: appFilter)) ?? []
+        let bounds = searchRange.bounds(day: day)
+        hits = (try? await recorder.db.search(query, app: searchApp, from: bounds.from, to: bounds.to)) ?? []
     }
 
     private func loadBoxes() async {
@@ -504,6 +536,8 @@ final class ScrubBridge {
 private struct SearchKey: Hashable {
     let query: String
     let app: String?
+    let range: SearchRange
+    let day: Date
 }
 
 private struct BoxKey: Hashable {

@@ -192,13 +192,23 @@ actor Database {
         }.compactMap { formatter.date(from: $0) }
     }
 
-    func search(_ query: String, app: String? = nil, limit: Int = 200) throws -> [SearchHit] {
+    func apps() throws -> [(app: String, count: Int)] {
+        try rows("SELECT app, COUNT(*) AS n FROM frames GROUP BY app ORDER BY n DESC", []) {
+            (Self.text($0, 0), Int(sqlite3_column_int64($0, 1)))
+        }
+    }
+
+    func search(_ query: String, app: String? = nil, from: Date? = nil, to: Date? = nil, limit: Int = 200) throws -> [SearchHit] {
         guard let match = Self.matchExpression(query) else { return [] }
         return try rows("""
             SELECT f.id, f.ts, f.app, f.title, f.path, f.display, snippet(frames_fts, 0, '', '', '…', 14)
             FROM frames_fts JOIN frames f ON f.id = frames_fts.rowid
-            WHERE frames_fts MATCH ? AND (? IS NULL OR f.app = ?) ORDER BY f.ts DESC LIMIT ?
-            """, [.text(match), app.map(Value.text) ?? .null, app.map(Value.text) ?? .null, .int(Int64(limit))]) {
+            WHERE frames_fts MATCH ? AND (? IS NULL OR f.app = ?) AND (? IS NULL OR f.ts >= ?) AND (? IS NULL OR f.ts < ?)
+            ORDER BY f.ts DESC LIMIT ?
+            """, [.text(match), app.map(Value.text) ?? .null, app.map(Value.text) ?? .null,
+                  from.map { Value.double($0.timeIntervalSince1970) } ?? .null, from.map { Value.double($0.timeIntervalSince1970) } ?? .null,
+                  to.map { Value.double($0.timeIntervalSince1970) } ?? .null, to.map { Value.double($0.timeIntervalSince1970) } ?? .null,
+                  .int(Int64(limit))]) {
             SearchHit(frame: Self.frame($0), snippet: Self.text($0, 6))
         }
     }
