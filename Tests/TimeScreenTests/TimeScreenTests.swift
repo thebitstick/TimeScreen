@@ -167,3 +167,25 @@ final class CompactionTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(Thumbnails.downscaled(url, maxPixel: 4000)).width, 2000)
     }
 }
+
+final class ScrollOpenGestureTests: XCTestCase {
+    func testOpensOnlyWithCommandShiftAndEnoughScrolling() {
+        var gesture = ScrollOpenGesture()
+        let start = Date()
+        XCTAssertFalse(gesture.shouldOpen(delta: 20, flags: [.command], now: start))
+        XCTAssertFalse(gesture.shouldOpen(delta: 20, flags: [.command, .shift, .option], now: start))
+        XCTAssertFalse(gesture.shouldOpen(delta: 2, flags: [.command, .shift], now: start))
+        XCTAssertTrue(gesture.shouldOpen(delta: 5, flags: [.command, .shift], now: start.addingTimeInterval(0.1)))
+    }
+
+    func testDoesNotReopenDuringCooldownAndForgetsIdleScrolling() {
+        var gesture = ScrollOpenGesture()
+        let start = Date()
+        XCTAssertTrue(gesture.shouldOpen(delta: 10, flags: [.command, .shift], now: start))
+        XCTAssertFalse(gesture.shouldOpen(delta: 10, flags: [.command, .shift], now: start.addingTimeInterval(0.5)))
+        XCTAssertTrue(gesture.shouldOpen(delta: 10, flags: [.command, .shift], now: start.addingTimeInterval(2)))
+        var idle = ScrollOpenGesture()
+        XCTAssertFalse(idle.shouldOpen(delta: 4, flags: [.command, .shift], now: start))
+        XCTAssertFalse(idle.shouldOpen(delta: 4, flags: [.command, .shift], now: start.addingTimeInterval(5)))
+    }
+}

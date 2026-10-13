@@ -189,12 +189,21 @@ private struct StoragePane: View {
 }
 
 private struct ShortcutsPane: View {
+    @AppStorage(Prefs.scrollToOpen) private var scrollToOpen = true
+
     var body: some View {
         Form {
             LabeledContent("Open Timeline:") {
                 VStack(alignment: .leading, spacing: 4) {
                     ShortcutRecorder()
                     Note("Works from any app. Click the field, then press the keys you want.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Scroll to open:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Use Command + Shift + scroll to open the timeline", isOn: $scrollToOpen)
+                    Note("Hold both keys and scroll with two fingers. Keep scrolling to scrub through time.")
                 }
             }
             .padding(.vertical, 5)

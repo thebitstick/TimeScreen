@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         recorder.start()
         HotKey.shared.onPress = { TimelineController.shared.toggle() }
         HotKey.shared.registerFromPrefs()
+        ScrollTrigger.shared.start()
         if !recorder.hasPermission { recorder.requestPermission() }
     }
 }

@@ -10,7 +10,7 @@ inferencing. Everything stays on your Mac.
 - Full-screen timeline overlay (global shortcut, default ⌥⌘T, configurable in Settings): scroll anywhere or use ← / → to scrub a filmstrip of thumbnails, pick a day, search everything you've seen. Esc closes
 - Records the frontmost app and window title with each frame
 - Pauses while the screen is off, the Mac sleeps or the session is locked; never records TimeScreen itself
-- Filter by app, copy text out of any screenshot, and a picker for each display
+- Command + Shift + scroll opens the timeline; filter by app, copy text out of any screenshot, and a picker for each display
 - A colored activity bar showing which app you were in all day, a calendar for picking days, and match highlighting on the screenshot
 - Excluded apps (password managers by default), retention (7 days to forever), open at login
 

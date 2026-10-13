@@ -7,6 +7,7 @@ enum Prefs {
     static let ocr = "ocrEnabled"
     static let compactOld = "compactOld"
     static let allDisplays = "allDisplays"
+    static let scrollToOpen = "scrollToOpen"
     static let excludedApps = "excludedApps"
     static let hotkeyCode = "hotkeyCode"
     static let hotkeyMods = "hotkeyMods"
@@ -27,6 +28,7 @@ enum Prefs {
             ocr: true,
             compactOld: true,
             allDisplays: true,
+            scrollToOpen: true,
             excludedApps: defaultExcluded,
             hotkeyCode: 17,
             hotkeyMods: 2304, // ⌥⌘ (Carbon optionKey | cmdKey)
