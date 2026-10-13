@@ -125,9 +125,9 @@ final class Recorder: ObservableObject {
                 let top = Windows.topWindow(in: windows, on: target.bounds)
                 let owner = top.flatMap { NSRunningApplication(processIdentifier: $0.pid) } ?? front
                 let bundleID = owner?.bundleIdentifier ?? ""
-                let title = top?.title ?? ""
+                let title = top.map { Windows.title(of: $0, in: windows, on: target.bounds) } ?? ""
                 if bundleID == Bundle.main.bundleIdentifier || excluded.contains(bundleID)
-                    || (skipPrivate && Windows.isPrivate(title: title, keywords: privateKeywords)) {
+                    || (skipPrivate && Windows.showsPrivateWindow(windows, on: target.bounds, keywords: privateKeywords)) {
                     lastSignatures[target.index] = nil
                     continue
                 }

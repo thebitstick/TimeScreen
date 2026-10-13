@@ -214,6 +214,24 @@ final class WindowInfoTests: XCTestCase {
         XCTAssertEqual(Windows.topWindow(in: windows, on: display)?.owner, "Notes")
     }
 
+    func testAPrivateWindowBehindATitlelessPopupStillCounts() {
+        let display = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let windows = [window("Zen", "", CGRect(x: 100, y: 100, width: 300, height: 200)),
+                       window("Zen", "Speedtest — Private Browsing", CGRect(x: 0, y: 0, width: 1200, height: 800)),
+                       window("Zen", "Elsewhere — Private Browsing", CGRect(x: 3000, y: 0, width: 1200, height: 800))]
+        XCTAssertTrue(Windows.showsPrivateWindow(windows, on: display, keywords: ["Private Browsing"]))
+        XCTAssertFalse(Windows.showsPrivateWindow(Array(windows.prefix(1)), on: display, keywords: ["Private Browsing"]))
+        XCTAssertTrue(Windows.showsPrivateWindow(windows, on: CGRect(x: 1920, y: 0, width: 1920, height: 1080), keywords: ["Private Browsing"]))
+        XCTAssertFalse(Windows.showsPrivateWindow(windows, on: CGRect(x: 5000, y: 0, width: 1920, height: 1080), keywords: ["Private Browsing"]))
+    }
+
+    func testTitleFallsBackToAnotherWindowOfTheSameApp() {
+        let display = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let popup = window("Zen", "", CGRect(x: 100, y: 100, width: 300, height: 200))
+        let page = window("Zen", "Docs", CGRect(x: 0, y: 0, width: 1200, height: 800))
+        XCTAssertEqual(Windows.title(of: popup, in: [popup, page], on: display), "Docs")
+    }
+
     func testPrivateTitlesMatchCaseInsensitively() {
         let keywords = ["Incognito", "Private Browsing"]
         XCTAssertTrue(Windows.isPrivate(title: "New Tab - Google Chrome (incognito)", keywords: keywords))
