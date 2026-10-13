@@ -28,9 +28,9 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 ## What was not tested
 
 - Compaction of real captures older than a day (covered by unit tests only).
-- The tabbed Settings window, the colored activity bar, the calendar and the app icons on thumbnails: built and
-  launched, but not independently checked on screen.
-- Multiple displays (only the main display is captured), and macOS versions other than the author's.
+- Copying text from a screenshot and filtering by app: built and unit-tested, but not independently checked on screen.
+- Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display capture are covered by unit tests alone.
+- macOS versions other than the author's.
 - Any build other than the author's, including other signing identities.
 
 ## Caveats
