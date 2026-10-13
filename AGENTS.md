@@ -21,7 +21,9 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `SettingsView.swift`, `Prefs.swift` | tabbed settings and the `UserDefaults` keys |
 | `Tests/TimeScreenTests` | unit tests (database, signature, word boxes, compaction) |
+| `Updater.swift` | Sparkle wrapper: update menu item, gentle reminders |
 | `Scripts/build-app.sh` | builds and signs `build/TimeScreen.app` (there is no Xcode project) |
+| `Scripts/publish-appcast.sh` | signs a release zip and uploads the Sparkle appcast |
 | `Scripts/make-icon.swift` | draws `Resources/AppIcon.icns`; run from the repo root |
 
 ## Commands
@@ -60,6 +62,19 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against
   installed applications.
+
+## Releasing
+
+1. Set `CFBundleShortVersionString` **and** `CFBundleVersion` in `Resources/Info.plist` to the new version (Sparkle compares
+   `CFBundleVersion`, so it must increase), commit, push.
+2. `git tag -a vX.Y.Z -m ... && git push origin vX.Y.Z`: the `release` workflow tests, builds and attaches
+   `TimeScreen-vX.Y.Z.zip`.
+3. `Scripts/publish-appcast.sh vX.Y.Z` signs that zip with the Sparkle private key (login keychain, account
+   `TimeScreen`; never export it or commit it) and uploads `appcast.xml` to the release. Use `--dry-run` to write
+   `build/appcast.xml` without uploading. Without this step the app's feed (`releases/latest/download/appcast.xml`) 404s.
+- Sparkle is embedded by `Scripts/build-app.sh`, which signs nested code first. The app needs the
+  `disable-library-validation` entitlement (`Resources/TimeScreen.entitlements`) because release builds are ad-hoc signed.
+- Updates re-prompt for Screen Recording whenever the signing identity differs between builds.
 
 ## Working agreements
 

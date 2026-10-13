@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKey.shared.onPress = { TimelineController.shared.toggle() }
         HotKey.shared.registerFromPrefs()
         ScrollTrigger.shared.start()
+        _ = Updater.shared
         if !recorder.hasPermission { recorder.requestPermission() }
     }
 }
@@ -33,6 +34,7 @@ struct TimeScreenApp: App {
 
 struct MenuContent: View {
     @ObservedObject var recorder: Recorder
+    @ObservedObject private var updater = Updater.shared
 
     var body: some View {
         if !recorder.hasPermission {
@@ -59,6 +61,11 @@ struct MenuContent: View {
             }
         }
         Divider()
+        if let version = updater.availableVersion {
+            Button("Update Available: \(version)…") { updater.checkForUpdates() }
+        } else {
+            Button("Check for Updates…") { updater.checkForUpdates() }
+        }
         SettingsLink { Text("Settings…") }
             .keyboardShortcut(",")
             .simultaneousGesture(TapGesture().onEnded { NSApp.activate(ignoringOtherApps: true) })

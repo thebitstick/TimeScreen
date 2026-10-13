@@ -27,6 +27,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 
 ## What was not tested
 
+- The update flow end to end: the framework embeds, signs and launches, and the appcast and its signature generate
+  from a real release, but no installed copy has yet updated itself to a newer release.
 - Compaction of real captures older than a day (covered by unit tests only).
 - Copying text from a screenshot and filtering by app: built and unit-tested, but not independently checked on screen.
 - Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display capture are covered by unit tests alone.

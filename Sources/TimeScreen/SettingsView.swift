@@ -68,6 +68,7 @@ private struct Note: View {
 private struct GeneralPane: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchError: String?
+    @State private var checksForUpdates = Updater.shared.automaticallyChecks
 
     var body: some View {
         Form {
@@ -84,6 +85,18 @@ private struct GeneralPane: View {
                             }
                         }
                     if let launchError { Text(launchError).font(.caption).foregroundStyle(.red) }
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Updates:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Check for updates automatically", isOn: $checksForUpdates)
+                        .onChange(of: checksForUpdates) { _, on in Updater.shared.automaticallyChecks = on }
+                    HStack {
+                        Button("Check Now") { Updater.shared.checkForUpdates() }
+                        Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
             .padding(.vertical, 5)
