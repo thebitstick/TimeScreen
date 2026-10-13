@@ -20,6 +20,9 @@ Data lives in `~/Library/Application Support/TimeScreen` (`frames/` HEIC screens
 ## Download
 Releases are on the [releases page](https://github.com/thebitstick/TimeScreen/releases). The app is ad-hoc signed, not notarized: after unzipping, right-click it and choose Open the first time.
 
+## First run
+A welcome window walks new installs through the Screen Recording permission, the shortcut and the privacy defaults. Settings → General → Show Welcome reopens it.
+
 ## Updates
 TimeScreen checks for updates with [Sparkle](https://sparkle-project.org) (it asks before the first automatic check, and you can turn it off in Settings → General). **Check for Updates…** in the menu bar checks right away. Update files are signed with an EdDSA key; the feed is `appcast.xml` on the latest GitHub release.
 

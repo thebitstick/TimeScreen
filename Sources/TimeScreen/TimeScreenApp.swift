@@ -8,7 +8,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKey.shared.registerFromPrefs()
         ScrollTrigger.shared.start()
         _ = Updater.shared
-        if !recorder.hasPermission { recorder.requestPermission() }
+        if CommandLine.arguments.contains("--welcome") {
+            WelcomeController.shared.show()
+        } else {
+            Task {
+                await WelcomeController.shared.showIfFirstRun()
+                if !recorder.hasPermission, UserDefaults.standard.bool(forKey: Prefs.welcomeShown) { recorder.requestPermission() }
+            }
+        }
     }
 }
 

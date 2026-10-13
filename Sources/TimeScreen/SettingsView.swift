@@ -1,4 +1,3 @@
-import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
@@ -66,27 +65,11 @@ private struct Note: View {
 }
 
 private struct GeneralPane: View {
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var launchError: String?
     @State private var checksForUpdates = Updater.shared.automaticallyChecks
 
     var body: some View {
         Form {
-            LabeledContent("Startup:") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Open TimeScreen at login", isOn: $launchAtLogin)
-                        .onChange(of: launchAtLogin) { _, enabled in
-                            do {
-                                if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-                                launchError = nil
-                            } catch {
-                                launchError = error.localizedDescription
-                                launchAtLogin = SMAppService.mainApp.status == .enabled
-                            }
-                        }
-                    if let launchError { Text(launchError).font(.caption).foregroundStyle(.red) }
-                }
-            }
+            LabeledContent("Startup:") { LaunchAtLoginToggle() }
             .padding(.vertical, 5)
             LabeledContent("Updates:") {
                 VStack(alignment: .leading, spacing: 4) {
@@ -102,7 +85,10 @@ private struct GeneralPane: View {
             .padding(.vertical, 5)
             LabeledContent("Timeline:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Button("Open Timeline") { TimelineController.shared.show() }
+                    HStack {
+                        Button("Open Timeline") { TimelineController.shared.show() }
+                        Button("Show Welcome") { WelcomeController.shared.show() }
+                    }
                     Note("Open it from the menu bar icon or with your shortcut. Esc closes it.")
                 }
             }

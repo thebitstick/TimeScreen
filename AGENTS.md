@@ -21,6 +21,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `SettingsView.swift`, `Prefs.swift` | tabbed settings and the `UserDefaults` keys |
 | `Tests/TimeScreenTests` | unit tests (database, signature, word boxes, compaction) |
+| `WelcomeWindow.swift` | first-run window (shown only when the database is empty; `--welcome` forces it) |
 | `Updater.swift` | Sparkle wrapper: update menu item, gentle reminders |
 | `Scripts/build-app.sh` | builds and signs `build/TimeScreen.app` (there is no Xcode project) |
 | `Scripts/publish-appcast.sh` | signs a release zip and uploads the Sparkle appcast |

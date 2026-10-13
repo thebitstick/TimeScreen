@@ -10,6 +10,7 @@ enum Prefs {
     static let allDisplays = "allDisplays"
     static let scrollToOpen = "scrollToOpen"
     static let skipPrivate = "skipPrivate"
+    static let welcomeShown = "welcomeShown"
     static let privateTitles = "privateTitles"
     static let excludedApps = "excludedApps"
     static let hotkeyCode = "hotkeyCode"
