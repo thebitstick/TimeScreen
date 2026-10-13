@@ -23,6 +23,7 @@ final class Recorder: ObservableObject {
     private var lastSignatures: [Int: [UInt8]] = [:]
     private var suspensions = Set<String>()
     private var lastPrune = Date.distantPast
+    private var lastCapCheck = Date.distantPast
     private var lastCompact = Date.distantPast
 
     private init() {
@@ -109,6 +110,7 @@ final class Recorder: ObservableObject {
         skipReason = nil
         hasPermission = CGPreflightScreenCaptureAccess()
         if Date().timeIntervalSince(lastPrune) > 3600 { await prune() }
+        if Date().timeIntervalSince(lastCapCheck) > 600 { await enforceStorageCap() }
         guard hasPermission, suspensions.isEmpty else { return }
 
         do {
@@ -199,18 +201,49 @@ final class Recorder: ObservableObject {
         let days = UserDefaults.standard.integer(forKey: Prefs.retentionDays)
         guard days > 0, let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return }
         guard let paths = try? await db.prune(before: cutoff), !paths.isEmpty else { return }
-        let root = framesRoot
+        await Self.removeFiles(paths, under: framesRoot)
+        revision += 1
+    }
+
+    private func enforceStorageCap() async {
+        lastCapCheck = Date()
+        let gigabytes = UserDefaults.standard.integer(forKey: Prefs.maxStorageGB)
+        guard gigabytes > 0 else { return }
+        let cap = Int64(gigabytes) * 1_000_000_000
+        var remaining = await diskUsage()
+        guard remaining > cap else { return }
+        let target = Int64(Double(cap) * 0.9)
+        var removedAny = false
+        while remaining > target {
+            guard let batch = try? await db.oldestFrames(limit: 200), !batch.isEmpty else { break }
+            let freed = await Self.removeFiles(batch.map(\.path), under: framesRoot)
+            guard (try? await db.delete(ids: batch.map(\.id))) != nil else { break }
+            remaining -= freed
+            removedAny = true
+        }
+        if removedAny {
+            revision += 1
+            await refreshToday()
+        }
+    }
+
+    @discardableResult
+    private nonisolated static func removeFiles(_ paths: [String], under root: URL) async -> Int64 {
         await Task.detached(priority: .utility) {
             let fm = FileManager.default
-            for path in paths { try? fm.removeItem(at: root.appendingPathComponent(path)) }
+            var freed: Int64 = 0
+            for path in paths {
+                let url = root.appendingPathComponent(path)
+                freed += Int64((try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]).totalFileAllocatedSize) ?? 0)
+                try? fm.removeItem(at: url)
+            }
             for dir in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
             where ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? ["x"]).isEmpty {
                 try? fm.removeItem(at: dir)
             }
+            return freed
         }.value
-        revision += 1
     }
-
 
     nonisolated static func relativePath(for date: Date, display: Int = 0, ext: String) -> String {
         let formatter = DateFormatter()

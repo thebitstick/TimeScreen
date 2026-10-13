@@ -56,6 +56,8 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   centered on that display (`Windows.topWindow`), falling back to the frontmost app. Excluded apps, TimeScreen
   itself and private windows skip only that display. Private windows are detected by title keywords
   (`Prefs.privateTitles`), a heuristic: browsers word their private titles differently.
+- **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
+  the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against
   installed applications.
 

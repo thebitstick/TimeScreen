@@ -4,6 +4,7 @@ enum Prefs {
     static let recording = "recording"
     static let interval = "interval"
     static let retentionDays = "retentionDays"
+    static let maxStorageGB = "maxStorageGB"
     static let ocr = "ocrEnabled"
     static let compactOld = "compactOld"
     static let allDisplays = "allDisplays"
@@ -34,6 +35,7 @@ enum Prefs {
             recording: true,
             interval: 5.0,
             retentionDays: 30,
+            maxStorageGB: 0,
             ocr: true,
             compactOld: true,
             allDisplays: true,

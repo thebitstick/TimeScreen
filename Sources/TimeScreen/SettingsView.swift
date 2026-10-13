@@ -161,6 +161,7 @@ private struct ScreenPane: View {
 private struct StoragePane: View {
     @ObservedObject var recorder: Recorder
     @AppStorage(Prefs.retentionDays) private var retention = 30
+    @AppStorage(Prefs.maxStorageGB) private var maxStorageGB = 0
     @AppStorage(Prefs.compactOld) private var compactOld = true
     @State private var usage: Int64 = 0
     @State private var confirmDelete = false
@@ -172,6 +173,17 @@ private struct StoragePane: View {
                 Text("Forever").tag(0)
             }
             .fixedSize()
+            .padding(.vertical, 5)
+            LabeledContent("Size limit:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("", selection: $maxStorageGB) {
+                        Text("No limit").tag(0)
+                        ForEach([5, 10, 20, 50, 100], id: \.self) { Text("\($0) GB").tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                    Note("When history grows past this, the oldest screenshots are deleted first. Checked every few minutes.")
+                }
+            }
             .padding(.vertical, 5)
             LabeledContent("Space:") {
                 VStack(alignment: .leading, spacing: 4) {

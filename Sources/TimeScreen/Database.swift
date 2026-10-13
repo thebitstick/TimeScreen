@@ -135,6 +135,18 @@ actor Database {
         return paths
     }
 
+    func oldestFrames(limit: Int) throws -> [Frame] {
+        try rows("SELECT id, ts, app, title, path, display FROM frames ORDER BY ts LIMIT ?", [.int(Int64(limit))]) { Self.frame($0) }
+    }
+
+    func delete(ids: [Int64]) throws {
+        for id in ids {
+            try run("DELETE FROM frames_fts WHERE rowid = ?", [.int(id)])
+            try run("DELETE FROM boxes WHERE frame_id = ?", [.int(id)])
+            try run("DELETE FROM frames WHERE id = ?", [.int(id)])
+        }
+    }
+
     func deleteAll() throws {
         try run("DELETE FROM frames_fts", [])
         try run("DELETE FROM boxes", [])

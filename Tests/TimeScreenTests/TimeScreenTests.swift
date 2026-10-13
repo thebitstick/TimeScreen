@@ -23,6 +23,24 @@ final class DatabaseTests: XCTestCase {
         XCTAssertNotEqual(Recorder.relativePath(for: date, display: 0, ext: "heic"), Recorder.relativePath(for: date, display: 1, ext: "heic"))
     }
 
+    func testDeletingTheOldestFramesRemovesTheirIndexEntries() async throws {
+        let db = try makeDatabase()
+        let start = Date()
+        for i in 0..<5 {
+            try await db.insert(date: start.addingTimeInterval(Double(i)), app: "A", title: "", path: "\(i).jpg",
+                                text: "shared word\(i)", boxes: WordBox.pack([WordBox(t: "x", x: 0, y: 0, w: 1, h: 1)]))
+        }
+        let oldest = try await db.oldestFrames(limit: 2)
+        XCTAssertEqual(oldest.map(\.path), ["0.jpg", "1.jpg"])
+        try await db.delete(ids: oldest.map(\.id))
+        let left = try await db.frames(on: start)
+        XCTAssertEqual(left.map(\.path), ["2.jpg", "3.jpg", "4.jpg"])
+        let hits = try await db.search("shared")
+        XCTAssertEqual(hits.count, 3)
+        let boxes = try await db.boxes(for: oldest[0].id)
+        XCTAssertNil(boxes)
+    }
+
     func testMatchExpression() {
         XCTAssertNil(Database.matchExpression("   "))
         XCTAssertEqual(Database.matchExpression("hello wor\"ld"), "\"hello\"* \"world\"*")
