@@ -139,6 +139,7 @@ private struct ScreenPane: View {
                             .border(Color.primary.opacity(0.15))
                     }
                     Note("A window is treated as private when its title contains one of these words, one per line. Browsers word this differently, so add your own.")
+                    Note("Safari doesn't mark private windows in their titles, so they can't be detected. Add com.apple.Safari to Never capture below, or use Pause For in the menu bar.")
                 }
             }
             .padding(.vertical, 5)
