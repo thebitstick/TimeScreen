@@ -21,19 +21,28 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 
 ## What was tested
 
-- `swift test`: unit tests for the database and search, duplicate-frame detection, word boxes and compaction.
-- On the author's Mac: capture, OCR and search, the full-screen timeline overlay, scrolling anywhere, the global
-  shortcut, and match highlighting.
+- `swift test`: unit tests for the database and search, duplicate-frame detection, word boxes, compaction, the
+  storage cap's database queries, search filters, window and private-title matching, the jump-to-time parser and
+  the scroll gesture.
+- On the author's Mac, and reported working by the author: capture, OCR and search with date and app filters,
+  the full-screen timeline, scrolling anywhere, the global shortcut and Command+Shift+scroll, match highlighting,
+  copying text, the app filter, the colored activity bar and calendar, the jump-to-time box, the settings window,
+  and pausing from the menu bar.
+- Checked by the AI against real data: compaction of frames older than a day, and that a private Zen window stops
+  a screen being captured.
+- Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.3) from signed releases.
 
 ## What was not tested
 
-- The update flow end to end: the framework embeds, signs and launches, and the appcast and its signature generate
-  from a real release, but no installed copy has yet updated itself to a newer release.
-- Compaction of real captures older than a day (covered by unit tests only).
-- Copying text from a screenshot and filtering by app: built and unit-tested, but not independently checked on screen.
-- Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display capture are covered by unit tests alone.
-- macOS versions other than the author's.
-- Any build other than the author's, including other signing identities.
+- The storage size limit on real files. Only its database queries are tested, because the history has never come
+  near the smallest limit (5 GB).
+- Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display
+  capture are covered by unit tests alone.
+- The first-run welcome window on a clean install. It was checked by screenshot only.
+- Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
+  titles. Other browsers are matched by title words and were only tried with Zen.
+- macOS versions other than the author's, and any build other than the author's, including other signing
+  identities.
 
 ## Caveats
 
