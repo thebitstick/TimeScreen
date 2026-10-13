@@ -16,6 +16,7 @@ final class Recorder: ObservableObject {
     @Published private(set) var lastCapture: Date?
     @Published private(set) var lastError: String?
     @Published private(set) var pausedUntil: Date?
+    @Published private(set) var skipReason: String?
 
     private var loop: Task<Void, Never>?
     private var resumeTimer: Task<Void, Never>?
@@ -105,6 +106,7 @@ final class Recorder: ObservableObject {
     }
 
     private func tick() async {
+        skipReason = nil
         hasPermission = CGPreflightScreenCaptureAccess()
         if Date().timeIntervalSince(lastPrune) > 3600 { await prune() }
         guard hasPermission, suspensions.isEmpty else { return }
@@ -121,14 +123,17 @@ final class Recorder: ObservableObject {
             let ocrEnabled = UserDefaults.standard.bool(forKey: Prefs.ocr)
             let db = self.db
 
+            var privateSkips = 0
+            defer { if privateSkips == targets.count { skipReason = "Not recording: private window open" } }
             for target in targets {
                 let top = Windows.topWindow(in: windows, on: target.bounds)
                 let owner = top.flatMap { NSRunningApplication(processIdentifier: $0.pid) } ?? front
                 let bundleID = owner?.bundleIdentifier ?? ""
                 let title = top.map { Windows.title(of: $0, in: windows, on: target.bounds) } ?? ""
-                if bundleID == Bundle.main.bundleIdentifier || excluded.contains(bundleID)
-                    || (skipPrivate && Windows.showsPrivateWindow(windows, on: target.bounds, keywords: privateKeywords)) {
+                let showsPrivate = skipPrivate && Windows.showsPrivateWindow(windows, on: target.bounds, keywords: privateKeywords)
+                if bundleID == Bundle.main.bundleIdentifier || excluded.contains(bundleID) || showsPrivate {
                     lastSignatures[target.index] = nil
+                    if showsPrivate { privateSkips += 1 }
                     continue
                 }
                 let app = owner?.localizedName ?? "Unknown"

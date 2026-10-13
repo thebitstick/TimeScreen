@@ -71,6 +71,7 @@ struct MenuContent: View {
             guard let until = recorder.pausedUntil else { return "Paused" }
             return "Paused until \(until.formatted(date: .omitted, time: .shortened))"
         }
+        if let reason = recorder.skipReason { return reason }
         let count = "\(recorder.framesToday) frames today"
         guard let last = recorder.lastCapture else { return count }
         return "\(count) · last \(last.formatted(date: .omitted, time: .standard))"
