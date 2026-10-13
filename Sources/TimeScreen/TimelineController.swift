@@ -39,6 +39,7 @@ final class TimelineController {
         })
         overlay.setFrame(screen.frame, display: true)
         window = overlay
+        Recorder.shared.setTimelineOpen(true)
 
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
             nonisolated(unsafe) let scroll = event
@@ -68,6 +69,7 @@ final class TimelineController {
         resignObserver = nil
         window?.orderOut(nil)
         window = nil
+        Recorder.shared.setTimelineOpen(false)
     }
 
     /// The filmstrip is the widest-and-flattest scroll view in the window (the results list is tall).

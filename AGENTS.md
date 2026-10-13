@@ -42,7 +42,7 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 ## Design decisions to preserve
 
 - **Nothing leaves the Mac.** No network code, no analytics, no language model. OCR is Apple Vision on device.
-- **Never record the app itself, excluded apps (password managers by default), a locked session, or a sleeping
+- **Never record the app itself, the open timeline, excluded apps (password managers by default), a locked session, or a sleeping
   display.**
 - **The overlay is a borderless `OverlayWindow`,** not a native full-screen window (that never went full screen).
   Scrolling anywhere works through a local scroll-wheel monitor that moves the filmstrip's clip view; the

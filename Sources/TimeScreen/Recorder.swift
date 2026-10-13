@@ -52,6 +52,10 @@ final class Recorder: ObservableObject {
         startLoop()
     }
 
+    func setTimelineOpen(_ open: Bool) {
+        if open { suspensions.insert("timeline") } else { suspensions.remove("timeline") }
+    }
+
     func pause(for seconds: TimeInterval) {
         resumeTimer?.cancel()
         isRecording = false
@@ -142,6 +146,7 @@ final class Recorder: ObservableObject {
                 AppIcons.shared.remember(owner)
 
                 let image = try await Capturer.capture(target)
+                guard suspensions.isEmpty else { return }
                 let signature = await Task.detached { Signature.make(image) }.value
                 if let last = lastSignatures[target.index], Signature.isDuplicate(last, signature) { continue }
                 lastSignatures[target.index] = signature
