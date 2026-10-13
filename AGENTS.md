@@ -15,7 +15,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | Path | Purpose |
 | --- | --- |
 | `Sources/TimeScreen/TimeScreenApp.swift` | app entry, menu bar extra, Settings window scene |
-| `Recorder.swift`, `Capturer.swift`, `Signature.swift` | capture loop, ScreenCaptureKit + Vision OCR, duplicate-frame detection |
+| `Recorder.swift`, `Capturer.swift`, `Signature.swift`, `WindowInfo.swift` | capture loop, ScreenCaptureKit + Vision OCR, duplicate-frame detection |
 | `Database.swift` | SQLite actor: frames, FTS5 index, word boxes |
 | `TimelineController.swift` | full-screen overlay window, scroll and Esc monitors, Carbon global hotkey, shortcut recorder |
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
@@ -52,6 +52,10 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **Frames are deduplicated** with a 64x36 grayscale signature before OCR and storage.
 - **Storage:** HEIC (JPEG fallback); frames older than a day are recompressed to 1728 px in the background.
   Word boxes are LZFSE-compressed JSON in the `boxes` table. Vision's origin is bottom-left; flip y when drawing.
+- **Each display is attributed separately:** its frame takes the app and title of the topmost normal window
+  centered on that display (`Windows.topWindow`), falling back to the frontmost app. Excluded apps, TimeScreen
+  itself and private windows skip only that display. Private windows are detected by title keywords
+  (`Prefs.privateTitles`), a heuristic: browsers word their private titles differently.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against
   installed applications.
 

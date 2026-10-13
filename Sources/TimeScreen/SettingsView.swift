@@ -105,6 +105,8 @@ private struct ScreenPane: View {
     @AppStorage(Prefs.ocr) private var ocr = true
     @AppStorage(Prefs.allDisplays) private var allDisplays = true
     @AppStorage(Prefs.excludedApps) private var excluded = Prefs.defaultExcluded
+    @AppStorage(Prefs.skipPrivate) private var skipPrivate = true
+    @AppStorage(Prefs.privateTitles) private var privateTitles = Prefs.defaultPrivateTitles
 
     var body: some View {
         Form {
@@ -124,6 +126,19 @@ private struct ScreenPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Make screen text searchable", isOn: $ocr)
                     Note("Reads the text in each screenshot on this Mac, so you can find it later.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Private windows:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Don't capture a screen showing a private window", isOn: $skipPrivate)
+                    if skipPrivate {
+                        TextEditor(text: $privateTitles)
+                            .font(.body.monospaced())
+                            .frame(height: 70)
+                            .border(Color.primary.opacity(0.15))
+                    }
+                    Note("A window is treated as private when its title contains one of these words, one per line. Browsers word this differently, so add your own.")
                 }
             }
             .padding(.vertical, 5)

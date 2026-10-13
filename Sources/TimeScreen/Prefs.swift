@@ -8,6 +8,8 @@ enum Prefs {
     static let compactOld = "compactOld"
     static let allDisplays = "allDisplays"
     static let scrollToOpen = "scrollToOpen"
+    static let skipPrivate = "skipPrivate"
+    static let privateTitles = "privateTitles"
     static let excludedApps = "excludedApps"
     static let hotkeyCode = "hotkeyCode"
     static let hotkeyMods = "hotkeyMods"
@@ -20,6 +22,13 @@ enum Prefs {
         com.bitwarden.desktop
         """
 
+    static let defaultPrivateTitles = """
+        Incognito
+        InPrivate
+        Private Browsing
+        Private Window
+        """
+
     static func register() {
         UserDefaults.standard.register(defaults: [
             recording: true,
@@ -29,6 +38,8 @@ enum Prefs {
             compactOld: true,
             allDisplays: true,
             scrollToOpen: true,
+            skipPrivate: true,
+            privateTitles: defaultPrivateTitles,
             excludedApps: defaultExcluded,
             hotkeyCode: 17,
             hotkeyMods: 2304, // ⌥⌘ (Carbon optionKey | cmdKey)
@@ -39,5 +50,12 @@ enum Prefs {
     static func excludedBundleIDs() -> Set<String> {
         let raw = UserDefaults.standard.string(forKey: excludedApps) ?? ""
         return Set(raw.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+    }
+}
+
+extension Prefs {
+    static func privateTitleKeywords() -> [String] {
+        let raw = UserDefaults.standard.string(forKey: privateTitles) ?? ""
+        return raw.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 }

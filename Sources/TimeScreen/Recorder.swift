@@ -15,8 +15,10 @@ final class Recorder: ObservableObject {
     @Published private(set) var framesToday = 0
     @Published private(set) var lastCapture: Date?
     @Published private(set) var lastError: String?
+    @Published private(set) var pausedUntil: Date?
 
     private var loop: Task<Void, Never>?
+    private var resumeTimer: Task<Void, Never>?
     private var lastSignatures: [Int: [UInt8]] = [:]
     private var suspensions = Set<String>()
     private var lastPrune = Date.distantPast
@@ -41,9 +43,23 @@ final class Recorder: ObservableObject {
     }
 
     func setRecording(_ on: Bool) {
+        resumeTimer?.cancel()
+        pausedUntil = nil
         isRecording = on
         UserDefaults.standard.set(on, forKey: Prefs.recording)
         startLoop()
+    }
+
+    func pause(for seconds: TimeInterval) {
+        resumeTimer?.cancel()
+        isRecording = false
+        pausedUntil = Date().addingTimeInterval(seconds)
+        startLoop()
+        resumeTimer = Task {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            setRecording(UserDefaults.standard.bool(forKey: Prefs.recording))
+        }
     }
 
     func requestPermission() {
@@ -93,33 +109,45 @@ final class Recorder: ObservableObject {
         if Date().timeIntervalSince(lastPrune) > 3600 { await prune() }
         guard hasPermission, suspensions.isEmpty else { return }
 
-        let front = NSWorkspace.shared.frontmostApplication
-        let bundleID = front?.bundleIdentifier ?? ""
-        if bundleID == Bundle.main.bundleIdentifier || Prefs.excludedBundleIDs().contains(bundleID) { return }
-        let app = front?.localizedName ?? "Unknown"
-        AppIcons.shared.remember(front)
-        let title = front.map { Self.windowTitle(pid: $0.processIdentifier) } ?? ""
-
         do {
-            let displays = try await Capturer.captureDisplays(all: UserDefaults.standard.bool(forKey: Prefs.allDisplays))
+            let targets = try await Capturer.targets(all: UserDefaults.standard.bool(forKey: Prefs.allDisplays))
+            let windows = Windows.frontToBack()
+            let front = NSWorkspace.shared.frontmostApplication
+            let excluded = Prefs.excludedBundleIDs()
+            let skipPrivate = UserDefaults.standard.bool(forKey: Prefs.skipPrivate)
+            let privateKeywords = Prefs.privateTitleKeywords()
             let now = Date()
             let root = framesRoot
             let ocrEnabled = UserDefaults.standard.bool(forKey: Prefs.ocr)
             let db = self.db
-            for (index, image) in displays {
+
+            for target in targets {
+                let top = Windows.topWindow(in: windows, on: target.bounds)
+                let owner = top.flatMap { NSRunningApplication(processIdentifier: $0.pid) } ?? front
+                let bundleID = owner?.bundleIdentifier ?? ""
+                let title = top?.title ?? ""
+                if bundleID == Bundle.main.bundleIdentifier || excluded.contains(bundleID)
+                    || (skipPrivate && Windows.isPrivate(title: title, keywords: privateKeywords)) {
+                    lastSignatures[target.index] = nil
+                    continue
+                }
+                let app = owner?.localizedName ?? "Unknown"
+                AppIcons.shared.remember(owner)
+
+                let image = try await Capturer.capture(target)
                 let signature = await Task.detached { Signature.make(image) }.value
-                if let last = lastSignatures[index], Signature.isDuplicate(last, signature) { continue }
-                lastSignatures[index] = signature
+                if let last = lastSignatures[target.index], Signature.isDuplicate(last, signature) { continue }
+                lastSignatures[target.index] = signature
 
                 try await Task.detached(priority: .utility) {
                     let (data, ext) = try Capturer.encode(image)
-                    let relative = Recorder.relativePath(for: now, display: index, ext: ext)
+                    let relative = Recorder.relativePath(for: now, display: target.index, ext: ext)
                     let url = root.appendingPathComponent(relative)
                     try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                     try data.write(to: url)
                     let ocr = ocrEnabled ? OCR.recognize(image) : OCRResult()
                     try await db.insert(date: now, app: app, title: title, path: relative, text: ocr.text,
-                                        boxes: WordBox.pack(ocr.words), display: index)
+                                        boxes: WordBox.pack(ocr.words), display: target.index)
                 }.value
             }
 
@@ -184,17 +212,6 @@ final class Recorder: ObservableObject {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd/HHmmss"
         return formatter.string(from: date) + (display > 0 ? "-d\(display)" : "") + "." + ext
-    }
-
-    private static func windowTitle(pid: pid_t) -> String {
-        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            return ""
-        }
-        // The list is ordered front to back, so the first normal window of the app is the one on top.
-        for window in windows where (window[kCGWindowOwnerPID as String] as? pid_t) == pid && (window[kCGWindowLayer as String] as? Int) == 0 {
-            if let name = window[kCGWindowName as String] as? String, !name.isEmpty { return name }
-        }
-        return ""
     }
 
     private func observeSystemState() {

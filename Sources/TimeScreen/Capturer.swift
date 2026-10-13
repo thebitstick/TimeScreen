@@ -15,25 +15,31 @@ enum CaptureError: Error, LocalizedError {
 }
 
 enum Capturer {
+    struct Target {
+        let index: Int
+        let display: SCDisplay
+        var bounds: CGRect { CGDisplayBounds(display.displayID) }
+    }
+
     /// Index 0 is the main display; the others follow from left to right.
-    static func captureDisplays(all: Bool) async throws -> [(index: Int, image: CGImage)] {
+    static func targets(all: Bool) async throws -> [Target] {
         let content = try await SCShareableContent.current
         let main = CGMainDisplayID()
         let ordered = content.displays.sorted {
             ($0.displayID == main ? -Double.infinity : $0.frame.minX) < ($1.displayID == main ? -Double.infinity : $1.frame.minX)
         }
         guard !ordered.isEmpty else { throw CaptureError.noDisplay }
-        var captured: [(Int, CGImage)] = []
-        for (index, display) in ordered.prefix(all ? ordered.count : 1).enumerated() {
-            let filter = SCContentFilter(display: display, excludingWindows: [])
-            let config = SCStreamConfiguration()
-            let scale = CGFloat(filter.pointPixelScale)
-            config.width = Int(CGFloat(display.width) * scale)
-            config.height = Int(CGFloat(display.height) * scale)
-            config.showsCursor = true
-            captured.append((index, try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)))
-        }
-        return captured
+        return ordered.prefix(all ? ordered.count : 1).enumerated().map { Target(index: $0.offset, display: $0.element) }
+    }
+
+    static func capture(_ target: Target) async throws -> CGImage {
+        let filter = SCContentFilter(display: target.display, excludingWindows: [])
+        let config = SCStreamConfiguration()
+        let scale = CGFloat(filter.pointPixelScale)
+        config.width = Int(CGFloat(target.display.width) * scale)
+        config.height = Int(CGFloat(target.display.height) * scale)
+        config.showsCursor = true
+        return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 
     static func encode(_ image: CGImage, quality: Double = 0.5) throws -> (data: Data, ext: String) {

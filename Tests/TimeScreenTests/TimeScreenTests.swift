@@ -189,3 +189,36 @@ final class ScrollOpenGestureTests: XCTestCase {
         XCTAssertFalse(idle.shouldOpen(delta: 4, flags: [.command, .shift], now: start.addingTimeInterval(5)))
     }
 }
+
+final class WindowInfoTests: XCTestCase {
+    private func window(_ owner: String, _ title: String, _ bounds: CGRect) -> OnScreenWindow {
+        OnScreenWindow(pid: 1, owner: owner, title: title, bounds: bounds)
+    }
+
+    func testTopWindowIsTheFrontmostOneCenteredOnTheDisplay() {
+        let left = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let windows = [
+            window("Mail", "Inbox", CGRect(x: 2000, y: 100, width: 800, height: 600)),
+            window("Xcode", "Main.swift", CGRect(x: 100, y: 100, width: 800, height: 600)),
+            window("Safari", "Docs", CGRect(x: 50, y: 50, width: 800, height: 600)),
+        ]
+        XCTAssertEqual(Windows.topWindow(in: windows, on: left)?.owner, "Xcode")
+        XCTAssertEqual(Windows.topWindow(in: windows, on: CGRect(x: 1920, y: 0, width: 1920, height: 1080))?.owner, "Mail")
+        XCTAssertNil(Windows.topWindow(in: windows, on: CGRect(x: 5000, y: 0, width: 100, height: 100)))
+    }
+
+    func testTinyWindowsAreIgnored() {
+        let display = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let windows = [window("Widget", "", CGRect(x: 10, y: 10, width: 60, height: 40)),
+                       window("Notes", "Todo", CGRect(x: 100, y: 100, width: 500, height: 400))]
+        XCTAssertEqual(Windows.topWindow(in: windows, on: display)?.owner, "Notes")
+    }
+
+    func testPrivateTitlesMatchCaseInsensitively() {
+        let keywords = ["Incognito", "Private Browsing"]
+        XCTAssertTrue(Windows.isPrivate(title: "New Tab - Google Chrome (incognito)", keywords: keywords))
+        XCTAssertTrue(Windows.isPrivate(title: "Docs — Private Browsing", keywords: keywords))
+        XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: keywords))
+        XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: [""]))
+    }
+}

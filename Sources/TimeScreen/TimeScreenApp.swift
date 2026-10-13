@@ -51,6 +51,13 @@ struct MenuContent: View {
         Button(recorder.isRecording ? "Pause Recording" : "Resume Recording") {
             recorder.setRecording(!recorder.isRecording)
         }
+        if recorder.isRecording {
+            Menu("Pause For") {
+                Button("15 Minutes") { recorder.pause(for: 15 * 60) }
+                Button("1 Hour") { recorder.pause(for: 60 * 60) }
+                Button("8 Hours") { recorder.pause(for: 8 * 60 * 60) }
+            }
+        }
         Divider()
         SettingsLink { Text("Settings…") }
             .keyboardShortcut(",")
@@ -60,7 +67,10 @@ struct MenuContent: View {
     }
 
     private var status: String {
-        guard recorder.isRecording else { return "Paused" }
+        guard recorder.isRecording else {
+            guard let until = recorder.pausedUntil else { return "Paused" }
+            return "Paused until \(until.formatted(date: .omitted, time: .shortened))"
+        }
         let count = "\(recorder.framesToday) frames today"
         guard let last = recorder.lastCapture else { return count }
         return "\(count) · last \(last.formatted(date: .omitted, time: .standard))"
