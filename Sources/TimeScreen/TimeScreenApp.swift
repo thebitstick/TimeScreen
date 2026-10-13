@@ -8,7 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKey.shared.registerFromPrefs()
         ScrollTrigger.shared.start()
         _ = Updater.shared
-        if CommandLine.arguments.contains("--welcome") {
+        if CommandLine.arguments.contains("--timeline") {
+            TimelineController.shared.show()
+        } else if CommandLine.arguments.contains("--welcome") {
             WelcomeController.shared.show()
         } else {
             Task {

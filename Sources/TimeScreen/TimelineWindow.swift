@@ -27,6 +27,8 @@ struct TimelineWindow: View {
     @State private var hits: [SearchHit] = []
     @State private var boxes: [WordBox] = []
     @State private var showCalendar = false
+    @State private var jumpText = ""
+    @State private var jumpFailed = false
     @State private var selection: CGRect?
     @State private var copiedMessage: String?
     @FocusState private var focused: Bool
@@ -107,6 +109,7 @@ struct TimelineWindow: View {
 
             if displays.count > 1 { displayMenu }
             appMenu
+            jumpField
 
             Spacer()
 
@@ -145,6 +148,37 @@ struct TimelineWindow: View {
     }
 
     static func displayName(_ index: Int) -> String { index == 0 ? "Main Display" : "Display \(index + 1)" }
+
+    private var jumpField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock").foregroundStyle(.secondary)
+            TextField("Jump to time", text: $jumpText)
+                .textFieldStyle(.plain)
+                .frame(width: 96)
+                .onSubmit(jump)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.red, lineWidth: jumpFailed ? 1.5 : 0))
+        .help("Type a time such as 3:45pm, 15:30 or noon, then press Return")
+    }
+
+    private func jump() {
+        let visible = frames
+        let target = JumpTime.candidates(jumpText, on: day)
+            .compactMap { date in Activity.nearest(visible, to: date.timeIntervalSince1970).map { (visible[$0], abs(visible[$0].date.timeIntervalSince(date))) } }
+            .min { $0.1 < $1.1 }
+        guard let frame = target?.0 else {
+            jumpFailed = true
+            Task {
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                jumpFailed = false
+            }
+            return
+        }
+        select(frame.id, animated: true)
+        jumpText = ""
+    }
 
     private var appMenu: some View {
         Menu {

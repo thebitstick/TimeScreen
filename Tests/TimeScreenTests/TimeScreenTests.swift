@@ -289,3 +289,40 @@ final class SearchRangeTests: XCTestCase {
         XCTAssertEqual(selected.to, day.addingTimeInterval(86_400))
     }
 }
+
+final class JumpTimeTests: XCTestCase {
+    private let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
+    private lazy var day = calendar.date(from: DateComponents(year: 2026, month: 10, day: 13))!
+
+    private func hours(_ text: String) -> [String] {
+        JumpTime.candidates(text, on: day, calendar: calendar).map { calendar.dateComponents([.hour, .minute], from: $0) }
+            .map { String(format: "%02d:%02d", $0.hour!, $0.minute!) }
+    }
+
+    func testExplicitTimes() {
+        XCTAssertEqual(hours("3:45pm"), ["15:45"])
+        XCTAssertEqual(hours("3:45 PM"), ["15:45"])
+        XCTAssertEqual(hours("12am"), ["00:00"])
+        XCTAssertEqual(hours("12pm"), ["12:00"])
+        XCTAssertEqual(hours("9 a"), ["09:00"])
+        XCTAssertEqual(hours("15:30"), ["15:30"])
+        XCTAssertEqual(hours("1530"), ["15:30"])
+        XCTAssertEqual(hours("noon"), ["12:00"])
+        XCTAssertEqual(hours("midnight"), ["00:00"])
+    }
+
+    func testAmbiguousHoursOfferBothHalvesOfTheDay() {
+        XCTAssertEqual(hours("3:45"), ["03:45", "15:45"])
+        XCTAssertEqual(hours("345"), ["03:45", "15:45"])
+        XCTAssertEqual(hours("12:10"), ["00:10", "12:10"])
+        XCTAssertEqual(hours("9"), ["09:00", "21:00"])
+    }
+
+    func testNonsenseIsRejected() {
+        for text in ["", "abc", "25:00", "13pm", "3:75", "0pm", "3:4"] { XCTAssertEqual(hours(text), [], text) }
+    }
+}
