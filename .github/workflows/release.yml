@@ -1,0 +1,17 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+      - run: ./Scripts/build-app.sh
+      - run: ditto -c -k --keepParent build/TimeScreen.app TimeScreen-${{ github.ref_name }}.zip
+      - run: gh release create "${{ github.ref_name }}" "TimeScreen-${{ github.ref_name }}.zip" --generate-notes --title "TimeScreen ${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ github.token }}

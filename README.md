@@ -16,6 +16,9 @@ inferencing. Everything stays on your Mac.
 
 Data lives in `~/Library/Application Support/TimeScreen` (`frames/` HEIC screenshots and `index.sqlite`).
 
+## Download
+Releases are on the [releases page](https://github.com/thebitstick/TimeScreen/releases). The app is ad-hoc signed, not notarized: after unzipping, right-click it and choose Open the first time.
+
 ## Building
 Requires macOS 14+ and Xcode / Swift 5.9+.
 
