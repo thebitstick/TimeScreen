@@ -20,15 +20,18 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineController.swift` | full-screen overlay window, scroll and Esc monitors, Carbon global hotkey, shortcut recorder |
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `JumpTime.swift` | parses the timeline's jump-to-time box (ambiguous hours return both am and pm) |
+| `SkipReason.swift` | why capture is skipped (private window, power, disk), plus the battery and free-space readings |
 | `MenuBarState.swift` | which SF Symbol and description the menu bar icon shows |
 | `Authenticator.swift` | the optional Touch ID / password lock on the timeline and its grace period |
 | `SettingsView.swift`, `Prefs.swift` | tabbed settings and the `UserDefaults` keys |
 | `Tests/TimeScreenTests` | unit tests (database, signature, word boxes, compaction) |
-| `WelcomeWindow.swift` | first-run window (shown only when the database is empty; `--welcome` forces it; `--timeline` opens the timeline at launch, for screenshots) |
+| `WelcomeWindow.swift` | first-run window (shown only when the database is empty; `--welcome` forces it; `--timeline` opens the timeline at launch, for screenshots; `-timelineDay yyyy-MM-dd` and `-timelineQuery text` preselect a day
+  and a search) |
 | `DockPresence.swift` | brings Settings, Welcome and update windows to the front (Dock presence while they are open) |
 | `Updater.swift` | Sparkle wrapper: update menu item, gentle reminders |
 | `Scripts/build-app.sh` | builds and signs `build/TimeScreen.app` (there is no Xcode project) |
 | `Scripts/publish-appcast.sh` | signs a release zip and uploads the Sparkle appcast |
+| `Scripts/make-demo-data.sh`, `Scripts/demo-data/` | draws a fictional day of screenshots, runs the real OCR and fills a data folder, for README screenshots |
 | `Scripts/make-icon.swift` | draws `Resources/AppIcon.icns`; run from the repo root |
 
 ## Commands
@@ -83,6 +86,11 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **Deleting history** goes through `Recorder.delete(_:)` (index rows, boxes and search text first, then the files via
   `Storage.removeFiles`), from the timeline's trash menu and the menu bar's Delete Recent. Both confirm first.
 - **The menu bar icon** comes from `MenuBarState` (permission, then paused, then private-window skip, then error).
+- **Why capture stops** is one model, `SkipReason` (private window, battery power, Low Power Mode, disk almost full). It drives
+  the menu status line and the menu bar icon (`MenuBarState`). Power and disk checks run before any window or capture work.
+- **Never record this app** (the ⃠ button in the timeline) needs a bundle identifier, but frames only store the app's
+  display name, so it is resolved through `AppIcons.bundleIdentifier(for:)` and can fail; the dialog says so.
+- **Search results** navigate with ↑ ↓ from the search field (`moveResult`) and Return hands focus back to the timeline.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against
@@ -122,3 +130,10 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   tracked files.
 - **Clean up** scratch files and extra app instances you create, and say what you touched when asked.
 - Commits made with Claude's help end with the `Co-Authored-By` trailer; the user is the author.
+
+## README screenshots
+
+Never use real captures. Generate a data folder with `Scripts/make-demo-data.sh /tmp/ts-demo 2026-10-13`, run a copy of the app
+with its own bundle identifier and `TIMESCREEN_DATA_DIR=/tmp/ts-demo` (it then skips the permission prompt), open it with
+`open -n --env TIMESCREEN_DATA_DIR=... TimeScreen.app --args --timeline -timelineDay 2026-10-13 [-timelineQuery git]`, and capture
+with `screencapture` (`-l <window id>` for the Welcome window). Check each image for anything personal before committing it.

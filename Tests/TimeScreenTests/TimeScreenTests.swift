@@ -72,6 +72,18 @@ final class DatabaseTests: XCTestCase {
         XCTAssertEqual(hits.count, 2)
     }
 
+    func testFramesCanBeListedByApp() async throws {
+        let db = try makeDatabase()
+        let now = Date()
+        try await db.insert(date: now, app: "Mail", title: "", path: "a.jpg", text: "one")
+        try await db.insert(date: now.addingTimeInterval(1), app: "Notes", title: "", path: "b.jpg", text: "two")
+        try await db.insert(date: now.addingTimeInterval(2), app: "Mail", title: "", path: "c.jpg", text: "three")
+        let mail = try await db.frames(app: "Mail")
+        XCTAssertEqual(mail.map(\.path), ["a.jpg", "c.jpg"])
+        let none = try await db.frames(app: "Music")
+        XCTAssertTrue(none.isEmpty)
+    }
+
     func testMatchExpression() {
         XCTAssertNil(Database.matchExpression("   "))
         XCTAssertEqual(Database.matchExpression("hello wor\"ld"), "\"hello\"* \"world\"*")
@@ -450,22 +462,62 @@ final class UnlockWindowTests: XCTestCase {
 }
 
 final class MenuBarStateTests: XCTestCase {
+    private func symbol(_ permission: Bool, _ recording: Bool, _ skip: SkipReason?, _ error: Bool) -> String {
+        MenuBarState.symbol(hasPermission: permission, isRecording: recording, skip: skip, hasError: error)
+    }
+
     func testSymbolFollowsTheMostImportantState() {
-        func symbol(_ permission: Bool, _ recording: Bool, _ skipping: Bool, _ error: Bool) -> String {
-            MenuBarState.symbol(hasPermission: permission, isRecording: recording, isSkipping: skipping, hasError: error)
-        }
-        XCTAssertEqual(symbol(true, true, false, false), "record.circle")
-        XCTAssertEqual(symbol(true, false, false, false), "pause.circle")
-        XCTAssertEqual(symbol(true, true, true, false), "eye.slash.circle")
-        XCTAssertEqual(symbol(true, true, false, true), "exclamationmark.circle")
-        XCTAssertEqual(symbol(false, true, false, false), "exclamationmark.triangle")
-        XCTAssertEqual(symbol(false, false, true, true), "exclamationmark.triangle")
-        XCTAssertEqual(symbol(true, false, true, true), "pause.circle")
+        XCTAssertEqual(symbol(true, true, nil, false), "record.circle")
+        XCTAssertEqual(symbol(true, false, nil, false), "pause.circle")
+        XCTAssertEqual(symbol(true, true, .privateWindow, false), "eye.slash.circle")
+        XCTAssertEqual(symbol(true, true, .onBattery, false), "bolt.slash.circle")
+        XCTAssertEqual(symbol(true, true, .diskAlmostFull, false), "externaldrive.badge.exclamationmark")
+        XCTAssertEqual(symbol(true, true, nil, true), "exclamationmark.circle")
+        XCTAssertEqual(symbol(false, true, nil, false), "exclamationmark.triangle")
+        XCTAssertEqual(symbol(false, false, .privateWindow, true), "exclamationmark.triangle")
+        XCTAssertEqual(symbol(true, false, .privateWindow, true), "pause.circle")
     }
 
     func testEveryStateHasADistinctDescription() {
-        let states = [(true, true, false, false), (true, false, false, false), (true, true, true, false), (true, true, false, true), (false, true, false, false)]
-        let descriptions = states.map { MenuBarState.description(hasPermission: $0.0, isRecording: $0.1, isSkipping: $0.2, hasError: $0.3) }
-        XCTAssertEqual(Set(descriptions).count, states.count)
+        let descriptions = [
+            MenuBarState.description(hasPermission: true, isRecording: true, skip: nil, hasError: false),
+            MenuBarState.description(hasPermission: true, isRecording: false, skip: nil, hasError: false),
+            MenuBarState.description(hasPermission: true, isRecording: true, skip: .privateWindow, hasError: false),
+            MenuBarState.description(hasPermission: true, isRecording: true, skip: .onBattery, hasError: false),
+            MenuBarState.description(hasPermission: true, isRecording: true, skip: .lowPowerMode, hasError: false),
+            MenuBarState.description(hasPermission: true, isRecording: true, skip: .diskAlmostFull, hasError: false),
+            MenuBarState.description(hasPermission: true, isRecording: true, skip: nil, hasError: true),
+            MenuBarState.description(hasPermission: false, isRecording: true, skip: nil, hasError: false),
+        ]
+        XCTAssertEqual(Set(descriptions).count, descriptions.count)
+    }
+}
+
+final class SkipReasonTests: XCTestCase {
+    func testPowerSettingsOnlyApplyWhenEnabled() {
+        XCTAssertNil(SkipReason.power(onBattery: true, lowPower: true, pauseOnBattery: false, pauseInLowPower: false))
+        XCTAssertEqual(SkipReason.power(onBattery: true, lowPower: false, pauseOnBattery: true, pauseInLowPower: false), .onBattery)
+        XCTAssertNil(SkipReason.power(onBattery: false, lowPower: false, pauseOnBattery: true, pauseInLowPower: true))
+        XCTAssertEqual(SkipReason.power(onBattery: false, lowPower: true, pauseOnBattery: false, pauseInLowPower: true), .lowPowerMode)
+        XCTAssertEqual(SkipReason.power(onBattery: true, lowPower: true, pauseOnBattery: true, pauseInLowPower: true), .lowPowerMode)
+    }
+
+    func testDiskThreshold() {
+        XCTAssertEqual(SkipReason.disk(freeBytes: 500_000_000), .diskAlmostFull)
+        XCTAssertNil(SkipReason.disk(freeBytes: 5_000_000_000))
+        XCTAssertNil(SkipReason.disk(freeBytes: 1_000_000_000))
+        XCTAssertGreaterThan(Disk.freeBytes(at: FileManager.default.temporaryDirectory), 0)
+    }
+}
+
+final class ExcludeAppTests: XCTestCase {
+    func testExcludingAnAppAppendsItOnceAndKeepsTheRest() {
+        let key = Prefs.excludedApps
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer { if let saved { UserDefaults.standard.set(saved, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) } }
+        UserDefaults.standard.set("com.example.one\n", forKey: key)
+        Prefs.excludeApp("com.example.two")
+        Prefs.excludeApp("com.example.two")
+        XCTAssertEqual(Prefs.excludedBundleIDs(), ["com.example.one", "com.example.two"])
     }
 }

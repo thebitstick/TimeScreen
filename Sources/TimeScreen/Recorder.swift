@@ -16,7 +16,7 @@ final class Recorder: ObservableObject {
     @Published private(set) var lastCapture: Date?
     @Published private(set) var lastError: String?
     @Published private(set) var pausedUntil: Date?
-    @Published private(set) var skipReason: String?
+    @Published private(set) var skipReason: SkipReason?
 
     private var loop: Task<Void, Never>?
     private var resumeTimer: Task<Void, Never>?
@@ -54,11 +54,11 @@ final class Recorder: ObservableObject {
     }
 
     var menuBarSymbol: String {
-        MenuBarState.symbol(hasPermission: hasPermission, isRecording: isRecording, isSkipping: skipReason != nil, hasError: lastError != nil)
+        MenuBarState.symbol(hasPermission: hasPermission, isRecording: isRecording, skip: skipReason, hasError: lastError != nil)
     }
 
     var menuBarDescription: String {
-        MenuBarState.description(hasPermission: hasPermission, isRecording: isRecording, isSkipping: skipReason != nil, hasError: lastError != nil)
+        MenuBarState.description(hasPermission: hasPermission, isRecording: isRecording, skip: skipReason, hasError: lastError != nil)
     }
 
     func frames(lastMinutes minutes: Int) async -> [Frame] {
@@ -127,6 +127,16 @@ final class Recorder: ObservableObject {
         if Date().timeIntervalSince(lastCapCheck) > 600 { await enforceStorageCap() }
         guard hasPermission, suspensions.isEmpty else { return }
 
+        let defaults = UserDefaults.standard
+        let environmentSkip = SkipReason.power(onBattery: Power.isOnBattery, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
+                                               pauseOnBattery: defaults.bool(forKey: Prefs.pauseOnBattery),
+                                               pauseInLowPower: defaults.bool(forKey: Prefs.pauseInLowPower))
+            ?? SkipReason.disk(freeBytes: Disk.freeBytes(at: framesRoot))
+        if let environmentSkip {
+            skipReason = environmentSkip
+            return
+        }
+
         do {
             let targets = try await Capturer.targets(all: UserDefaults.standard.bool(forKey: Prefs.allDisplays))
             let windows = Windows.frontToBack()
@@ -140,7 +150,7 @@ final class Recorder: ObservableObject {
             let db = self.db
 
             var privateSkips = 0
-            defer { if privateSkips == targets.count { skipReason = "Not recording: private window open" } }
+            defer { if privateSkips == targets.count { skipReason = .privateWindow } }
             for target in targets {
                 let top = Windows.topWindow(in: windows, on: target.bounds)
                 let owner = top.flatMap { NSRunningApplication(processIdentifier: $0.pid) } ?? front

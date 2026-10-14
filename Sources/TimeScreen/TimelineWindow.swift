@@ -32,6 +32,7 @@ struct TimelineWindow: View {
     @State private var selection: CGRect?
     @State private var statusMessage: String?
     @State private var deleteRequest: DeleteRequest?
+    @State private var excludeRequest: ExcludeRequest?
     @FocusState private var focused: Bool
 
     private var displays: [Int] { Set(loadedFrames.map(\.display)).sorted() }
@@ -82,7 +83,10 @@ struct TimelineWindow: View {
             return .handled
         }
         .onChange(of: selectedID) { selection = nil }
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            applyLaunchOptions()
+        }
         .task { await reloadDays() }
         .task(id: day) { await loadDay() }
         .task(id: SearchKey(query: query, app: searchApp, range: searchRange, day: day)) { await runSearch() }
@@ -96,6 +100,28 @@ struct TimelineWindow: View {
             }
         } message: { request in
             Text("The screenshots and their search text are removed. This can't be undone.")
+        }
+        .confirmationDialog("Never record \(excludeRequest?.app ?? "")?",
+                            isPresented: Binding(get: { excludeRequest != nil }, set: { if !$0 { excludeRequest = nil } }),
+                            titleVisibility: .visible, presenting: excludeRequest) { request in
+            if let bundleID = request.bundleID {
+                Button("Never Record \(request.app)") {
+                    Prefs.excludeApp(bundleID)
+                    flash("\(request.app) won't be recorded")
+                }
+                if !request.frames.isEmpty {
+                    Button("Never Record and Delete \(request.frames.count) \(request.frames.count == 1 ? "Frame" : "Frames")", role: .destructive) {
+                        Prefs.excludeApp(bundleID)
+                        Task { await performDelete(DeleteRequest(title: "", frames: request.frames)) }
+                    }
+                }
+            }
+        } message: { request in
+            if request.bundleID != nil {
+                Text("While \(request.app) is the topmost window, nothing is captured. Screenshots already taken stay unless you delete them. You can undo this in Settings → Privacy.")
+            } else {
+                Text("TimeScreen couldn't identify \(request.app). Add its bundle identifier under Settings → Privacy → Never capture.")
+            }
         }
         .onChange(of: recorder.revision) {
             Task {
@@ -126,6 +152,12 @@ struct TimelineWindow: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search everything you've seen", text: $query)
                     .textFieldStyle(.plain)
+                    .onKeyPress(.downArrow) { moveResult(1) }
+                    .onKeyPress(.upArrow) { moveResult(-1) }
+                    .onSubmit {
+                        if !hits.isEmpty, !hits.contains(where: { $0.frame.id == selectedID }) { jump(to: hits[0].frame) }
+                        focused = true
+                    }
                 if isSearching {
                     Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
@@ -332,6 +364,25 @@ struct TimelineWindow: View {
         }
     }
 
+    /// `-timelineQuery text` and `-timelineDay yyyy-MM-dd` on the command line, for screenshots and demos.
+    private func applyLaunchOptions() {
+        let defaults = UserDefaults.standard
+        if let text = defaults.string(forKey: "timelineQuery") { query = text }
+        if let text = defaults.string(forKey: "timelineDay") {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd"
+            if let date = formatter.date(from: text) { day = date }
+        }
+    }
+
+    private func prepareExclusion(_ app: String) {
+        Task {
+            let frames = (try? await recorder.db.frames(app: app)) ?? []
+            excludeRequest = ExcludeRequest(app: app, bundleID: AppIcons.shared.bundleIdentifier(for: app), frames: frames)
+        }
+    }
+
     private func performDelete(_ request: DeleteRequest) async {
         let removed = Set(request.frames.map(\.id))
         let anchor = current?.date
@@ -366,6 +417,9 @@ struct TimelineWindow: View {
                 if !frame.title.isEmpty { Text("— \(frame.title)").lineLimit(1).foregroundStyle(.secondary) }
                 Spacer()
                 if let statusMessage { Text(statusMessage).foregroundStyle(.green) }
+                Button { prepareExclusion(frame.app) } label: { Image(systemName: "nosign") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .help("Never record \(frame.app)")
                 deleteMenu
                 if !boxes.isEmpty {
                     Button("Copy Text", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
@@ -447,7 +501,24 @@ struct TimelineWindow: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
     }
 
+    private func moveResult(_ delta: Int) -> KeyPress.Result {
+        guard !hits.isEmpty else { return .ignored }
+        let current = hits.firstIndex { $0.frame.id == selectedID }
+        let next = current.map { min(max($0 + delta, 0), hits.count - 1) } ?? (delta > 0 ? 0 : hits.count - 1)
+        jump(to: hits[next].frame)
+        return .handled
+    }
+
     private var resultRows: some View {
+        ScrollViewReader { proxy in
+            resultList
+                .onChange(of: selectedID) {
+                    if let id = selectedID, hits.contains(where: { $0.id == id }) { proxy.scrollTo(id, anchor: .center) }
+                }
+        }
+    }
+
+    private var resultList: some View {
         List(hits) { hit in
             Button { jump(to: hit.frame) } label: {
                 VStack(alignment: .leading, spacing: 2) {
@@ -642,6 +713,13 @@ final class ScrubBridge {
 private struct DeleteRequest: Identifiable {
     let id = UUID()
     let title: String
+    let frames: [Frame]
+}
+
+private struct ExcludeRequest: Identifiable {
+    let id = UUID()
+    let app: String
+    let bundleID: String?
     let frames: [Frame]
 }
 

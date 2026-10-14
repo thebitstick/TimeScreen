@@ -105,6 +105,8 @@ private struct ScreenPane: View {
     @AppStorage(Prefs.interval) private var interval = 5.0
     @AppStorage(Prefs.ocr) private var ocr = true
     @AppStorage(Prefs.allDisplays) private var allDisplays = true
+    @AppStorage(Prefs.pauseOnBattery) private var pauseOnBattery = false
+    @AppStorage(Prefs.pauseInLowPower) private var pauseInLowPower = false
 
     var body: some View {
         Form {
@@ -117,6 +119,14 @@ private struct ScreenPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Capture every display", isOn: $allDisplays)
                     Note("Turn off to capture only the main display. The timeline has a picker when you have more than one.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Power:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Pause on battery power", isOn: $pauseOnBattery)
+                    Toggle("Pause in Low Power Mode", isOn: $pauseInLowPower)
+                    Note("Capturing and reading text uses energy. Recording resumes by itself when the condition ends. TimeScreen also pauses when less than 1 GB of disk space is free.")
                 }
             }
             .padding(.vertical, 5)

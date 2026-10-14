@@ -27,7 +27,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - On the author's Mac, and reported working by the author: capture, OCR and search with date and app filters,
   the full-screen timeline, scrolling anywhere, the global shortcut and Command+Shift+scroll, match highlighting,
   copying text, the app filter, the colored activity bar and calendar, the jump-to-time box, the settings window,
-  pausing from the menu bar, and the timeline lock (Touch ID or password).
+  pausing from the menu bar, the timeline lock (Touch ID or password), the delete menus and their confirmations, and the
+  menu bar icon's states. Settings opens in front on first open but can open behind other windows afterwards.
 - Checked by the AI against real data: compaction of frames older than a day, and that a private Zen window stops
   a screen being captured.
 - The storage size limit, against real files in a temporary folder: it deletes the oldest frames, their search
@@ -37,15 +38,18 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   itself on an empty history, shows the permission as not yet granted and no system prompt appears.
 - Deleting history, on a copy of the author's real data in an isolated app instance: deleting the last hour removed
   every frame in that range together with its search entries, word positions and image files, and left the rest.
-- Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.3) from signed releases.
+- The README screenshots use a fictional day of screenshots drawn by `Scripts/demo-data`, run through the app's real OCR.
+  Searching and highlighting in them is the real code path.
+- Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested
 
 - The storage size limit on the author's own history, which has never come near the smallest limit (5 GB).
 - Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display
   capture are covered by unit tests alone.
-- The delete menus and their confirmation dialogs, and the changing menu bar icon, on screen: the code paths and the
-  deletion itself were checked, but the menus were not clicked through.
+- Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
+  the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
+- The one-click "never record this app" button and the ↑ ↓ keys in search results.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.

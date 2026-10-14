@@ -5,6 +5,8 @@ enum Prefs {
     static let interval = "interval"
     static let retentionDays = "retentionDays"
     static let maxStorageGB = "maxStorageGB"
+    static let pauseOnBattery = "pauseOnBattery"
+    static let pauseInLowPower = "pauseInLowPower"
     static let ocr = "ocrEnabled"
     static let compactOld = "compactOld"
     static let allDisplays = "allDisplays"
@@ -38,7 +40,9 @@ enum Prefs {
             recording: true,
             interval: 5.0,
             retentionDays: 30,
-            maxStorageGB: 0,
+            maxStorageGB: 20,
+            pauseOnBattery: false,
+            pauseInLowPower: false,
             ocr: true,
             compactOld: true,
             allDisplays: true,
@@ -61,6 +65,12 @@ enum Prefs {
 }
 
 extension Prefs {
+    static func excludeApp(_ bundleID: String) {
+        guard !excludedBundleIDs().contains(bundleID) else { return }
+        let current = UserDefaults.standard.string(forKey: excludedApps) ?? ""
+        UserDefaults.standard.set(current.trimmingCharacters(in: .whitespacesAndNewlines) + "\n" + bundleID, forKey: excludedApps)
+    }
+
     static func privateTitleKeywords() -> [String] {
         let raw = UserDefaults.standard.string(forKey: privateTitles) ?? ""
         return raw.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }

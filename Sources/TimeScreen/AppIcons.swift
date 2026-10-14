@@ -34,6 +34,10 @@ final class AppIcons {
     private static let rememberedKey = "appPaths"
     private lazy var remembered = UserDefaults.standard.dictionary(forKey: Self.rememberedKey) as? [String: String] ?? [:]
 
+    func bundleIdentifier(for app: String) -> String? {
+        location(of: app).flatMap { Bundle(url: $0)?.bundleIdentifier }
+    }
+
     private func location(of app: String) -> URL? {
         if let path = remembered[app], FileManager.default.fileExists(atPath: path) { return URL(fileURLWithPath: path) }
         if let url = applicationURLs()[app] { return url }

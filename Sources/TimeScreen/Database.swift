@@ -182,6 +182,10 @@ actor Database {
                  [.double(start.timeIntervalSince1970), .double(end.timeIntervalSince1970)], map: Self.frame)
     }
 
+    func frames(app: String) throws -> [Frame] {
+        try rows("SELECT id, ts, app, title, path, display FROM frames WHERE app = ? ORDER BY ts", [.text(app)], map: Self.frame)
+    }
+
     func count(on day: Date) throws -> Int {
         let (start, end) = Self.bounds(of: day)
         return try rows("SELECT COUNT(*) FROM frames WHERE ts >= ? AND ts < ?",
