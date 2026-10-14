@@ -42,7 +42,18 @@ final class Recorder: ObservableObject {
     func start() {
         observeSystemState()
         startLoop()
-        Task { await refreshToday() }
+        Task {
+            await refreshToday()
+            await backfillBundles()
+        }
+    }
+
+    /// Frames from before bundle identifiers were stored get them from what is known about each app name.
+    private func backfillBundles() async {
+        guard let apps = try? await db.appsMissingBundle() else { return }
+        for app in apps {
+            if let bundle = AppIcons.shared.bundleIdentifier(for: app) { try? await db.setBundle(bundle, forApp: app) }
+        }
     }
 
     func setRecording(_ on: Bool) {
@@ -179,7 +190,7 @@ final class Recorder: ObservableObject {
                     try data.write(to: url)
                     let ocr = ocrEnabled ? OCR.recognize(image) : OCRResult()
                     try await db.insert(date: now, app: app, title: title, path: relative, text: ocr.text,
-                                        boxes: WordBox.pack(ocr.words), display: target.index)
+                                        boxes: WordBox.pack(ocr.words), display: target.index, bundle: bundleID)
                 }.value
             }
 

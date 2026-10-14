@@ -8,6 +8,7 @@ struct Frame: Identifiable, Hashable {
     let title: String
     let path: String
     var display = 0
+    var bundle = ""
 }
 
 struct SearchHit: Identifiable, Hashable {
@@ -109,6 +110,7 @@ actor Database {
         // Added after v0.1; fails harmlessly once the column exists.
         sqlite3_exec(db, "ALTER TABLE frames ADD COLUMN compacted INTEGER NOT NULL DEFAULT 0", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE frames ADD COLUMN display INTEGER NOT NULL DEFAULT 0", nil, nil, nil)
+        sqlite3_exec(db, "ALTER TABLE frames ADD COLUMN bundle TEXT NOT NULL DEFAULT ''", nil, nil, nil)
         handle = db
     }
 
@@ -116,9 +118,9 @@ actor Database {
 
 
     @discardableResult
-    func insert(date: Date, app: String, title: String, path: String, text: String, boxes: Data? = nil, display: Int = 0) throws -> Int64 {
-        try run("INSERT INTO frames(ts, app, title, path, display) VALUES(?,?,?,?,?)",
-                [.double(date.timeIntervalSince1970), .text(app), .text(title), .text(path), .int(Int64(display))])
+    func insert(date: Date, app: String, title: String, path: String, text: String, boxes: Data? = nil, display: Int = 0, bundle: String = "") throws -> Int64 {
+        try run("INSERT INTO frames(ts, app, title, path, display, bundle) VALUES(?,?,?,?,?,?)",
+                [.double(date.timeIntervalSince1970), .text(app), .text(title), .text(path), .int(Int64(display)), .text(bundle)])
         let id = sqlite3_last_insert_rowid(handle)
         try run("INSERT INTO frames_fts(rowid, text, app, title) VALUES(?,?,?,?)",
                 [.int(id), .text(text), .text(app), .text(title)])
@@ -136,7 +138,7 @@ actor Database {
     }
 
     func oldestFrames(limit: Int) throws -> [Frame] {
-        try rows("SELECT id, ts, app, title, path, display FROM frames ORDER BY ts LIMIT ?", [.int(Int64(limit))]) { Self.frame($0) }
+        try rows("SELECT id, ts, app, title, path, display, bundle FROM frames ORDER BY ts LIMIT ?", [.int(Int64(limit))]) { Self.frame($0) }
     }
 
     func delete(ids: [Int64]) throws {
@@ -154,7 +156,7 @@ actor Database {
     }
 
     func framesToCompact(before date: Date, limit: Int) throws -> [Frame] {
-        try rows("SELECT id, ts, app, title, path, display FROM frames WHERE compacted = 0 AND ts < ? ORDER BY ts LIMIT ?",
+        try rows("SELECT id, ts, app, title, path, display, bundle FROM frames WHERE compacted = 0 AND ts < ? ORDER BY ts LIMIT ?",
                  [.double(date.timeIntervalSince1970), .int(Int64(limit))], map: Self.frame)
     }
 
@@ -173,17 +175,17 @@ actor Database {
 
     func frames(on day: Date) throws -> [Frame] {
         let (start, end) = Self.bounds(of: day)
-        return try rows("SELECT id, ts, app, title, path, display FROM frames WHERE ts >= ? AND ts < ? ORDER BY ts",
+        return try rows("SELECT id, ts, app, title, path, display, bundle FROM frames WHERE ts >= ? AND ts < ? ORDER BY ts",
                         [.double(start), .double(end)], map: Self.frame)
     }
 
     func frames(from start: Date, to end: Date) throws -> [Frame] {
-        try rows("SELECT id, ts, app, title, path, display FROM frames WHERE ts >= ? AND ts < ? ORDER BY ts",
+        try rows("SELECT id, ts, app, title, path, display, bundle FROM frames WHERE ts >= ? AND ts < ? ORDER BY ts",
                  [.double(start.timeIntervalSince1970), .double(end.timeIntervalSince1970)], map: Self.frame)
     }
 
     func frames(app: String) throws -> [Frame] {
-        try rows("SELECT id, ts, app, title, path, display FROM frames WHERE app = ? ORDER BY ts", [.text(app)], map: Self.frame)
+        try rows("SELECT id, ts, app, title, path, display, bundle FROM frames WHERE app = ? ORDER BY ts", [.text(app)], map: Self.frame)
     }
 
     func count(on day: Date) throws -> Int {
@@ -201,6 +203,18 @@ actor Database {
         }.compactMap { formatter.date(from: $0) }
     }
 
+    func appBundles() throws -> [(app: String, bundle: String)] {
+        try rows("SELECT DISTINCT app, bundle FROM frames WHERE bundle != ''", []) { (Self.text($0, 0), Self.text($0, 1)) }
+    }
+
+    func appsMissingBundle() throws -> [String] {
+        try rows("SELECT DISTINCT app FROM frames WHERE bundle = ''", []) { Self.text($0, 0) }
+    }
+
+    func setBundle(_ bundle: String, forApp app: String) throws {
+        try run("UPDATE frames SET bundle = ? WHERE app = ? AND bundle = ''", [.text(bundle), .text(app)])
+    }
+
     func apps() throws -> [(app: String, count: Int)] {
         try rows("SELECT app, COUNT(*) AS n FROM frames GROUP BY app ORDER BY n DESC", []) {
             (Self.text($0, 0), Int(sqlite3_column_int64($0, 1)))
@@ -210,7 +224,7 @@ actor Database {
     func search(_ query: String, app: String? = nil, from: Date? = nil, to: Date? = nil, limit: Int = 200) throws -> [SearchHit] {
         guard let match = Self.matchExpression(query) else { return [] }
         return try rows("""
-            SELECT f.id, f.ts, f.app, f.title, f.path, f.display, snippet(frames_fts, 0, '', '', '…', 14)
+            SELECT f.id, f.ts, f.app, f.title, f.path, f.display, f.bundle, snippet(frames_fts, 0, '', '', '…', 14)
             FROM frames_fts JOIN frames f ON f.id = frames_fts.rowid
             WHERE frames_fts MATCH ? AND (? IS NULL OR f.app = ?) AND (? IS NULL OR f.ts >= ?) AND (? IS NULL OR f.ts < ?)
             ORDER BY f.ts DESC LIMIT ?
@@ -218,7 +232,7 @@ actor Database {
                   from.map { Value.double($0.timeIntervalSince1970) } ?? .null, from.map { Value.double($0.timeIntervalSince1970) } ?? .null,
                   to.map { Value.double($0.timeIntervalSince1970) } ?? .null, to.map { Value.double($0.timeIntervalSince1970) } ?? .null,
                   .int(Int64(limit))]) {
-            SearchHit(frame: Self.frame($0), snippet: Self.text($0, 6))
+            SearchHit(frame: Self.frame($0), snippet: Self.text($0, 7))
         }
     }
 
@@ -246,7 +260,7 @@ actor Database {
     private nonisolated static func frame(_ stmt: OpaquePointer) -> Frame {
         Frame(id: sqlite3_column_int64(stmt, 0),
               date: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
-              app: text(stmt, 2), title: text(stmt, 3), path: text(stmt, 4), display: Int(sqlite3_column_int(stmt, 5)))
+              app: text(stmt, 2), title: text(stmt, 3), path: text(stmt, 4), display: Int(sqlite3_column_int(stmt, 5)), bundle: text(stmt, 6))
     }
 
     private func prepare(_ sql: String, _ values: [Value]) throws -> OpaquePointer {

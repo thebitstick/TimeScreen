@@ -79,7 +79,6 @@ icon, which macOS needs for it to bring those windows to the front.
   ad hoc rather than with a developer certificate.
 - **The timeline doesn't open:** check the shortcut in Settings ▸ Shortcuts (another app may use it) and, if you turned on the
   timeline lock, that you can authenticate.
-- **Settings opens behind other windows the second time:** macOS is stubborn about menu bar apps. Click its Dock icon.
 - **Copy Text isn't shown:** the frame was captured with "Make screen text searchable" turned off.
 - **History is using a lot of disk:** lower the retention or the size limit in Settings ▸ Storage.
 

@@ -28,7 +28,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   the full-screen timeline, scrolling anywhere, the global shortcut and Command+Shift+scroll, match highlighting,
   copying text, the app filter, the colored activity bar and calendar, the jump-to-time box, the settings window,
   pausing from the menu bar, the timeline lock (Touch ID or password), the delete menus and their confirmations, the
-  menu bar icon's states, the one-click "never record this app" button and the ↑ ↓ keys in search results. Settings opens in front on first open but can open behind other windows afterwards.
+  menu bar icon's states, the one-click "never record this app" button and the ↑ ↓ keys in search results. Settings opening in front on every open was reproduced and checked by driving TimeScreen's menu with System Events.
 - Checked by the AI against real data: compaction of frames older than a day, and that a private Zen window stops
   a screen being captured.
 - The storage size limit, against real files in a temporary folder: it deletes the oldest frames, their search

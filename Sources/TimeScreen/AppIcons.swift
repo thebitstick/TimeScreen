@@ -8,6 +8,7 @@ final class AppIcons {
     private var urlsByName: [String: URL]?
     private var icons: [String: NSImage] = [:]
     private var colors: [String: Color] = [:]
+    private var bundlesByName: [String: String] = [:]
 
     func icon(for app: String) -> NSImage? {
         if let cached = icons[app] { return cached }
@@ -34,11 +35,19 @@ final class AppIcons {
     private static let rememberedKey = "appPaths"
     private lazy var remembered = UserDefaults.standard.dictionary(forKey: Self.rememberedKey) as? [String: String] ?? [:]
 
+    func learn(app: String, bundle: String) {
+        guard !bundle.isEmpty, bundlesByName[app] != bundle else { return }
+        bundlesByName[app] = bundle
+        icons[app] = nil
+        colors[app] = nil
+    }
+
     func bundleIdentifier(for app: String) -> String? {
-        location(of: app).flatMap { Bundle(url: $0)?.bundleIdentifier }
+        bundlesByName[app] ?? location(of: app).flatMap { Bundle(url: $0)?.bundleIdentifier }
     }
 
     private func location(of app: String) -> URL? {
+        if let bundle = bundlesByName[app], let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) { return url }
         if let path = remembered[app], FileManager.default.fileExists(atPath: path) { return URL(fileURLWithPath: path) }
         if let url = applicationURLs()[app] { return url }
         NSWorkspace.shared.runningApplications.forEach(remember)

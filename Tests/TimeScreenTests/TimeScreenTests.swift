@@ -84,6 +84,27 @@ final class DatabaseTests: XCTestCase {
         XCTAssertTrue(none.isEmpty)
     }
 
+    func testBundleIdentifiersAreStoredAndBackfilled() async throws {
+        let db = try makeDatabase()
+        let now = Date()
+        try await db.insert(date: now, app: "Notes", title: "", path: "a.jpg", text: "one", bundle: "com.apple.Notes")
+        try await db.insert(date: now.addingTimeInterval(1), app: "Mail", title: "", path: "b.jpg", text: "two")
+        try await db.insert(date: now.addingTimeInterval(2), app: "Mail", title: "", path: "c.jpg", text: "three")
+        let stored = try await db.frames(on: now)
+        XCTAssertEqual(stored.map(\.bundle), ["com.apple.Notes", "", ""])
+        let missing = try await db.appsMissingBundle()
+        XCTAssertEqual(missing, ["Mail"])
+
+        try await db.setBundle("com.apple.mail", forApp: "Mail")
+        try await db.setBundle("com.example.other", forApp: "Notes")
+        let after = try await db.frames(on: now)
+        XCTAssertEqual(after.map(\.bundle), ["com.apple.Notes", "com.apple.mail", "com.apple.mail"])
+        let pairs = try await db.appBundles()
+        XCTAssertEqual(Set(pairs.map { "\($0.app)=\($0.bundle)" }), ["Notes=com.apple.Notes", "Mail=com.apple.mail"])
+        let hits = try await db.search("two")
+        XCTAssertEqual(hits.first?.frame.bundle, "com.apple.mail")
+    }
+
     func testMatchExpression() {
         XCTAssertNil(Database.matchExpression("   "))
         XCTAssertEqual(Database.matchExpression("hello wor\"ld"), "\"hello\"* \"world\"*")

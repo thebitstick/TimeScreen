@@ -376,10 +376,11 @@ struct TimelineWindow: View {
         }
     }
 
-    private func prepareExclusion(_ app: String) {
+    private func prepareExclusion(_ frame: Frame) {
         Task {
-            let frames = (try? await recorder.db.frames(app: app)) ?? []
-            excludeRequest = ExcludeRequest(app: app, bundleID: AppIcons.shared.bundleIdentifier(for: app), frames: frames)
+            let frames = (try? await recorder.db.frames(app: frame.app)) ?? []
+            let bundleID = frame.bundle.isEmpty ? AppIcons.shared.bundleIdentifier(for: frame.app) : frame.bundle
+            excludeRequest = ExcludeRequest(app: frame.app, bundleID: bundleID, frames: frames)
         }
     }
 
@@ -417,7 +418,7 @@ struct TimelineWindow: View {
                 if !frame.title.isEmpty { Text("— \(frame.title)").lineLimit(1).foregroundStyle(.secondary) }
                 Spacer()
                 if let statusMessage { Text(statusMessage).foregroundStyle(.green) }
-                Button { prepareExclusion(frame.app) } label: { Image(systemName: "nosign") }
+                Button { prepareExclusion(frame) } label: { Image(systemName: "nosign") }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
                     .help("Never record \(frame.app)")
                 deleteMenu
@@ -580,6 +581,7 @@ struct TimelineWindow: View {
         if !loaded.contains(today) { loaded.insert(today, at: 0) }
         days = loaded
         allApps = (try? await recorder.db.apps()) ?? []
+        for pair in (try? await recorder.db.appBundles()) ?? [] { AppIcons.shared.learn(app: pair.app, bundle: pair.bundle) }
     }
 
     private func loadDay() async {

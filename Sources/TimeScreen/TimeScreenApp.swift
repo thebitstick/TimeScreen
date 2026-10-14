@@ -86,12 +86,8 @@ struct MenuContent: View {
         } else {
             Button("Check for Updates…") { updater.checkForUpdates() }
         }
-        SettingsLink { Text("Settings…") }
+        Button("Settings…") { DockPresence.openSettings() }
             .keyboardShortcut(",")
-            .simultaneousGesture(TapGesture().onEnded {
-                DockPresence.windowWillOpen()
-                DockPresence.frontOpenWindowsSoon()
-            })
         Button("Quit TimeScreen") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }

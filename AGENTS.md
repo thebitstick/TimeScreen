@@ -82,19 +82,24 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **Windows come to the front through `DockPresence`.** An accessory app cannot reliably activate itself on recent macOS,
   so it switches to the regular (Dock) activation policy while a titled window is open and back afterwards. Settings opens
   through SwiftUI's `openSettings` (captured by a hook in the menu bar icon); `sendAction(showSettingsWindow:)` reports
-  success but opens nothing. `--settings` opens Settings at launch, for checking window order with `open -g`.
+  success but opens nothing. The menu item is a plain `Button` calling `DockPresence.openSettings()`: a `SettingsLink` in a
+  menu is a native menu item, so gestures attached to it never run (that was the "opens behind on the second try" bug).
+  To check window order for real, drive the menu with System Events: click `menu bar item 1 of menu bar 2` of the process, then
+  the `Settings…` item, and compare `frontmost` and the window list before and after (needs Accessibility for the host app).
+  `--settings` opens Settings at launch, for checking window order with `open -g`.
 - **Deleting history** goes through `Recorder.delete(_:)` (index rows, boxes and search text first, then the files via
   `Storage.removeFiles`), from the timeline's trash menu and the menu bar's Delete Recent. Both confirm first.
 - **The menu bar icon** comes from `MenuBarState` (permission, then paused, then private-window skip, then error).
 - **Why capture stops** is one model, `SkipReason` (private window, battery power, Low Power Mode, disk almost full). It drives
   the menu status line and the menu bar icon (`MenuBarState`). Power and disk checks run before any window or capture work.
-- **Never record this app** (the ⃠ button in the timeline) needs a bundle identifier, but frames only store the app's
-  display name, so it is resolved through `AppIcons.bundleIdentifier(for:)` and can fail; the dialog says so.
+- **Never record this app** (the ⃠ button in the timeline) uses the frame's stored bundle identifier, falling back to
+  `AppIcons.bundleIdentifier(for:)` for old frames, and the dialog says so if neither works.
 - **Search results** navigate with ↑ ↓ from the search field (`moveResult`) and Return hands focus back to the timeline.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
-- Frames store the app's display name, not its bundle identifier, so icons are found by matching names against
-  installed applications.
+- Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are
+  backfilled at launch from what is known about the name). Icons and never-record resolve through the bundle identifier when
+  there is one and fall back to matching the name against installed applications.
 
 ## Releasing
 
