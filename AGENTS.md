@@ -39,7 +39,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 
 ## Commands
 
-Day to day, run `Scripts/dev.sh`: it quits the running app, rebuilds, installs into `~/Applications` and launches it.
+Day to day, run `Scripts/dev.sh`: it quits the running app, rebuilds, installs into `/Applications` and launches it.
 Local builds are signed with the first "Apple Development" identity in the keychain (no name is stored in the repo), which
 keeps the Screen Recording permission across rebuilds; ad-hoc builds (CI, releases, `SIGN_IDENTITY=-`) lose it every time.
 A test copy with another bundle id or `TIMESCREEN_DATA_DIR` does not ask for the permission on launch.

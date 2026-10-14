@@ -137,7 +137,7 @@ macOS 14+ to run. Building with Xcode 26 (Swift 6.2) or later includes summaries
 Xcode 26.
 
 ```sh
-Scripts/dev.sh              # quit, rebuild, install into ~/Applications and launch
+Scripts/dev.sh              # quit, rebuild, install into /Applications and launch
 Scripts/build-app.sh        # build/TimeScreen.app only
 swift test
 ```
