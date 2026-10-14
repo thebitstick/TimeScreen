@@ -12,7 +12,7 @@ Sonnet 5.5, run through Claude Code) in a back-and-forth session with the projec
 - Commits made with Claude's help carry a `Co-Authored-By: Claude` trailer.
 
 TimeScreen itself uses machine learning, all of it on your Mac. Text is read from screenshots with Apple's Vision framework,
-search is SQLite full-text search, and optional summaries are written by Apple's on-device language model (the Foundation Models
+search is SQLite full-text search, and optional summaries are written by on-device Apple Intelligence (the Foundation Models
 framework). The summaries are generated from recognized text only, nothing is sent anywhere, and the cloud model macOS 27 also
 offers is deliberately not used.
 
@@ -54,7 +54,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Starred moments: the rules that protect starred frames (retention, the size limit, compaction) are unit-tested, and the star
   button, badges and yellow marks were seen on fictional data, and the author confirmed starring, the Star Moment shortcut and the sound of the Pause shortcut work on their own Mac.
 - Summaries: the logic is unit-tested with a stub model (caching, rollups, progress, staleness, budgeting, retry, cleanup, deletion
-  with the frames they cover). A live test runs Apple's real on-device model on fictional screens and was run by the AI; it skips
+  with the frames they cover). A live test runs the real on-device Apple Intelligence model on fictional screens and was run by the AI; it skips
   itself where the model is unavailable. The AI also had the real model write a whole fictional day (34 blocks, 9 hours and the
   day) through the app's own code path. Timings on a copy of the author's real history: about 2.7 s per 15-minute block after
   the input was capped (6.4-7.5 s before), 1.8 s for an hour rollup.

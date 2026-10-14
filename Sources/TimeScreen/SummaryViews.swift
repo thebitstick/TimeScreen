@@ -22,7 +22,7 @@ struct SummaryCard: View {
                     }
                     .buttonStyle(.plain).foregroundStyle(.tint)
                     .disabled(busyElsewhere)
-                    .help(pending > 1 ? "Takes about \(pending) steps: it writes the smaller summaries first." : "Write this summary with Apple's on-device model.")
+                    .help(pending > 1 ? "Takes about \(pending) steps: it writes the smaller summaries first." : "Write this summary with on-device Apple Intelligence.")
                 }
             }
             if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
@@ -88,7 +88,7 @@ struct SummaryPanel: View {
                                 record: records[card.window], pending: pending[card.window] ?? 0, summarizer: summarizer)
                 }
                 if frame == nil { Text("Pick a screenshot to summarize.").foregroundStyle(.secondary) }
-                Text("Written on this Mac by Apple's on-device model from the text it read on your screen. Summaries can be wrong, so check the screenshot.")
+                Text("Written on this Mac by on-device Apple Intelligence from the text it read on your screen. Summaries can be wrong, so check the screenshot.")
                     .font(.caption2).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             }
         }

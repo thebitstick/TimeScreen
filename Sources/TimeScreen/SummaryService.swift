@@ -16,8 +16,8 @@ enum SummaryError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .noText: "There is no recognized text to summarize here."
-        case .tooLong: "There was too much text to fit the model, even after trimming it."
-        case .empty: "The model didn't return a summary."
+        case .tooLong: "There was too much text for Apple Intelligence to read, even after trimming it."
+        case .empty: "Apple Intelligence didn't return a summary."
         case .unavailable(let reason): reason
         case .failed(let reason): reason
         }

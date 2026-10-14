@@ -5,7 +5,7 @@
 <h1 align="center">TimeScreen</h1>
 
 <p align="center">
-  A searchable history of your screen for macOS, like Rewind, with recaps written by Apple's on-device model. Everything stays on your Mac.
+  A searchable history of your screen for macOS, like Rewind, with recaps written by on-device Apple Intelligence. Everything stays on your Mac.
 </p>
 
 <p align="center">
@@ -20,19 +20,19 @@
 
 TimeScreen lives in the menu bar and takes a screenshot every few seconds. Press a shortcut and the whole screen turns into
 a timeline you can scroll through, search and copy text from. It reads the text in each screenshot with Apple's on-device
-text recognition, and can write short summaries of a screenshot, a stretch of time, an app or a whole day with Apple's on-device
-language model (macOS 26 or later with Apple Intelligence). Nothing is ever sent off your Mac.
+text recognition, and can write short summaries of a screenshot, a stretch of time, an app or a whole day with on-device
+Apple Intelligence (macOS 26 or later). Nothing is ever sent off your Mac.
 
 ## Features
 
-| | |
+| Feature | What it does |
 |---|---|
 | **Capture** | Every display, every 2 to 60 seconds (5 by default), skipping frames where nothing changed. Stored as HEIC; screenshots older than a day are shrunk to save space |
 | **Timeline** | A full-screen filmstrip you scrub by scrolling anywhere. A colored bar shows which app you were in all day, with its icon. Pick days from a calendar, filter by app, or type a time (`3:45pm`, `15:30`, `noon`) into **Jump to time** |
 | **Search** | Search everything you've seen, filtered by date range or app. Words match from the start, `"quotes"` match an exact phrase and `-word` leaves one out. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
-| **Starred moments** | Press **S** (or use the star) to keep a screenshot forever. Starred ones are never deleted by retention or the size limit, show up as gold marks on the timeline, and are listed under the star in the top bar. A global **Star Moment** shortcut and a menu bar item star whatever is on screen now |
+| **Starred moments** | Press **S** (or use the star) to keep a screenshot forever. Starred ones are never deleted by retention or the size limit, show up as yellow marks on the activity bar, and are listed under the star in the top bar. A global **Star Moment** shortcut and a menu bar item star whatever is on screen now |
 | **Zoom** | Pinch, or ⌘+ ⌘− ⌘0, to zoom into a screenshot toward the pointer. Drag to select text, hold ⇧ and drag to move around |
-| **Summaries** | Short recaps of a screenshot, a 15-minute stretch, an hour, a day or one app's day, written by Apple's on-device model (macOS 26+ with Apple Intelligence). See [Summaries](#summaries) |
+| **Summaries** | Short recaps of a screenshot, a 15-minute stretch, an hour, a day or one app's day, written by on-device Apple Intelligence (macOS 26 or later). See [Summaries](#summaries) |
 | **Text panel** | Press **T** to show the text recognized in the current screenshot beside it, with your search words highlighted |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
 | **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
@@ -55,7 +55,7 @@ language model (macOS 26 or later with Apple Intelligence). Nothing is ever sent
 
 Open the **Summary** tab beside a screenshot (press **T**, then choose Summary) to write a recap of:
 
-| | |
+| Summary | What it covers |
 |---|---|
 | **This screenshot** | One request, on demand |
 | **Around this time** | The 15-minute stretch it belongs to |
@@ -63,13 +63,13 @@ Open the **Summary** tab beside a screenshot (press **T**, then choose Summary) 
 | **This day** | Built from the day's hours |
 | **An app's day** | Everything you did in that app that day |
 
-The sparkles button in the top bar opens a **day recap**, hour by hour. Summaries are written on this Mac by Apple's on-device
-language model from the text TimeScreen already read, never from the image, and they are saved in your index and deleted along with
+The sparkles button in the top bar opens a **day recap**, hour by hour. Summaries are written on this Mac by on-device Apple
+Intelligence from the text TimeScreen already read, never from the image, and they are saved in your index and deleted along with
 the screenshots they cover.
 
 How it works, and its limits:
 
-- The model reads about 8,000 tokens at a time, but a recap only gets about 2,000 of them (roughly 6,000 characters): reading the input is
+- Apple Intelligence reads about 8,000 tokens at a time, but a recap only gets about 2,000 of them (roughly 6,000 characters): reading the input is
   most of the time a request takes, and more text barely improves a one- or two-sentence recap. A stretch of many screenshots is boiled down
   first, dropping lines that repeat on most of them, like menu bars and sidebars. On a typical Mac that is about 2 to 3 seconds per
   15-minute stretch and under 2 for an hour.
@@ -86,7 +86,7 @@ later. A welcome window walks you through allowing **Screen Recording**.
 
 ## Using it
 
-| | |
+| Action | How |
 |---|---|
 | Open the timeline | **⌥⌘T** (changeable, or removable, in Settings ▸ Shortcuts), the menu bar icon, or hold **⌘⇧** and scroll |
 | Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **⌘← ⌘→** (or **Home** and **End**) to the first and last frame |
@@ -123,10 +123,10 @@ icon, which macOS needs for it to bring those windows to the front.
   ad hoc rather than with a developer certificate.
 - **The timeline doesn't open:** check the shortcut in Settings ▸ Shortcuts (another app may use it) and, if you turned on the
   timeline lock, that you can authenticate.
-- **Summaries are slow:** the model writes one at a time, a few seconds each, and a day from scratch is dozens of them. Leave background
+- **Summaries are slow:** Apple Intelligence writes one at a time, a few seconds each, and a day from scratch is dozens of them. Leave background
   summaries on and plug the Mac in while you're away, and recaps are mostly ready when you ask. Progress shows on the card, and you can cancel.
-- **Summaries say the model isn't available:** they need macOS 26 or later with Apple Intelligence turned on in System Settings, and the
-  model downloaded. Settings ▸ Summaries says which of those is missing.
+- **Summaries say Apple Intelligence isn't available:** they need macOS 26 or later with Apple Intelligence turned on in System Settings, and
+  its on-device model downloaded. Settings ▸ Summaries says which of those is missing.
 - **Copy Text isn't shown:** the frame was captured with "Make screen text searchable" turned off.
 - **The timeline opens on yesterday:** nothing has been captured yet today, so it opens on the latest day with screenshots.
 - **History is using a lot of disk:** lower the retention or the size limit in Settings ▸ Storage.

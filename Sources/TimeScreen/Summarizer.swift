@@ -25,14 +25,14 @@ enum SystemModel {
                 switch reason {
                 case .deviceNotEligible: return .unavailable("This Mac doesn't support Apple Intelligence.")
                 case .appleIntelligenceNotEnabled: return .unavailable("Turn on Apple Intelligence in System Settings to write summaries.")
-                case .modelNotReady: return .unavailable("Apple's on-device model is still downloading or getting ready. Try again in a while.")
-                @unknown default: return .unavailable("Apple's on-device model isn't available right now.")
+                case .modelNotReady: return .unavailable("On-device Apple Intelligence is still downloading or getting ready. Try again in a while.")
+                @unknown default: return .unavailable("On-device Apple Intelligence isn't available right now.")
                 }
             }
         }
         return .unavailable("Summaries need macOS 26 or later.")
         #else
-        return .unavailable("This build of TimeScreen was made without support for Apple's on-device model.")
+        return .unavailable("This build of TimeScreen was made without support for on-device Apple Intelligence.")
         #endif
     }
 

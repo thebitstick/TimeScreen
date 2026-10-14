@@ -5,7 +5,7 @@ Guidance for Claude (or any contributor) working in this repository.
 ## What this is
 
 A native macOS menu bar app (Swift, SwiftUI, SwiftPM) that keeps a searchable history of the screen, like
-Rewind.ai: screenshots plus on-device OCR, and optional summaries from Apple's on-device language model. Everything
+Rewind.ai: screenshots plus on-device OCR, and optional summaries from on-device Apple Intelligence. Everything
 stays on the Mac. MIT licensed. The code is AI-written; keep `AI-DISCLOSURE.md` truthful when that changes.
 
 Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bitstick.*`).
@@ -63,7 +63,7 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 ## Design decisions to preserve
 
 - **Nothing leaves the Mac.** No network code except Sparkle's update check, no analytics. OCR is Apple Vision on device, and the only
-  language model is Apple's on-device `SystemLanguageModel`. Never use `PrivateCloudComputeLanguageModel` or any other model that
+  generative AI is on-device Apple Intelligence (`SystemLanguageModel`). Never use `PrivateCloudComputeLanguageModel` or any other model that
   sends text off the machine.
 - **Never record the app itself, the open timeline, excluded apps (password managers by default), a locked session, or a sleeping
   display.**

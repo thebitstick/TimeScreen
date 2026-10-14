@@ -171,10 +171,10 @@ private struct SummariesPane: View {
                         Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
-                        Label("Apple's on-device model is ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        Label("On-device Apple Intelligence is ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     }
                     Button("Check Again") { summarizer.refreshAvailability() }
-                    Note("Summaries are written on this Mac by Apple's on-device model, from the text TimeScreen read on your screen. Nothing is sent anywhere.")
+                    Note("Summaries are written on this Mac by on-device Apple Intelligence, from the text TimeScreen read on your screen. Nothing is sent anywhere.")
                 }
             }
             .padding(.vertical, 5)
@@ -186,7 +186,7 @@ private struct SummariesPane: View {
             }
             .padding(.vertical, 5)
             LabeledContent("Limits:") {
-                Note("The model reads about 8,000 tokens at a time, roughly 20,000 characters, so long stretches are boiled down to their new lines first. Each summary takes a few seconds, and a whole day can take a few minutes. Summaries can be wrong or thin when a screen has little text, so check the screenshot.")
+                Note("Apple Intelligence reads about 8,000 tokens at a time, roughly 20,000 characters, so long stretches are boiled down to their new lines first. Each summary takes a few seconds, and a whole day can take a few minutes. Summaries can be wrong or thin when a screen has little text, so check the screenshot.")
             }
             .padding(.vertical, 5)
             LabeledContent("Stored:") {
