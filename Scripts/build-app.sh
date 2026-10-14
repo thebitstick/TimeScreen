@@ -17,6 +17,13 @@ cp "$BIN_DIR/TimeScreen" "$APP/Contents/MacOS/TimeScreen"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp THIRD-PARTY-NOTICES.md LICENSE.md "$APP/Contents/Resources/"
+case "$IDENTITY" in
+    "Apple Development:"*)
+        # A development build: Sparkle still reports new versions but never installs one by itself, because a release
+        # build would replace this copy and macOS would drop its Screen Recording permission.
+        /usr/libexec/PlistBuddy -c "Add :SUAllowsAutomaticUpdates bool false" -c "Add :TimeScreenDevBuild bool true" "$APP/Contents/Info.plist"
+        ;;
+esac
 ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/TimeScreen"
 

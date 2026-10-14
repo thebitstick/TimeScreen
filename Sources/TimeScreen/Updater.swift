@@ -12,6 +12,10 @@ final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate, SPUStandard
         controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
     }
 
+    static var isDevelopmentBuild: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "TimeScreenDevBuild") as? Bool == true
+    }
+
     var automaticallyChecks: Bool {
         get { controller.updater.automaticallyChecksForUpdates }
         set { controller.updater.automaticallyChecksForUpdates = newValue }

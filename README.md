@@ -31,6 +31,7 @@ text recognition, and there is no language model and no inferencing anywhere.
 | **Search** | Search everything you've seen, filtered by date range or app. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
 | **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
+| **Export** | Save a screenshot as a PNG, copy it, save its text, or export a whole day as a folder of screenshots with a Markdown transcript. Search results export as a transcript too |
 | **Delete** | Delete the frame you're looking at, the last 5, 15 or 60 minutes (also from the menu bar), or a whole day |
 | **Storage** | Keep history from 7 days to forever, with a size limit (20 GB by default) that deletes the oldest screenshots first |
 | **Power** | Optionally pauses on battery power or in Low Power Mode, and always when less than 1 GB of disk space is free |
@@ -93,7 +94,8 @@ swift test
 ```
 
 Local builds are signed with the first "Apple Development" identity in your keychain, which lets macOS keep the Screen Recording
-permission between rebuilds. `Scripts/make-demo-data.sh` writes a fictional day of screenshots for trying the timeline or taking
+permission between rebuilds, and they never install updates automatically (they still tell you one exists), because a release
+build would replace your copy and reset that permission. `Scripts/make-demo-data.sh` writes a fictional day of screenshots for trying the timeline or taking
 screenshots without real data. `AGENTS.md` has the release steps and design notes.
 
 ## License

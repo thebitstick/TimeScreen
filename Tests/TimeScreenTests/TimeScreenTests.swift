@@ -105,6 +105,20 @@ final class DatabaseTests: XCTestCase {
         XCTAssertEqual(hits.first?.frame.bundle, "com.apple.mail")
     }
 
+    func testTextsCanBeFetchedForManyFrames() async throws {
+        let db = try makeDatabase()
+        var ids: [Int64] = []
+        for i in 0..<450 {
+            ids.append(try await db.insert(date: Date().addingTimeInterval(Double(i)), app: "A", title: "", path: "\(i).jpg", text: "frame number \(i)"))
+        }
+        let texts = try await db.texts(for: ids)
+        XCTAssertEqual(texts.count, 450)
+        XCTAssertEqual(texts[ids[0]], "frame number 0")
+        XCTAssertEqual(texts[ids[449]], "frame number 449")
+        let empty = try await db.texts(for: [])
+        XCTAssertTrue(empty.isEmpty)
+    }
+
     func testMatchExpression() {
         XCTAssertNil(Database.matchExpression("   "))
         XCTAssertEqual(Database.matchExpression("hello wor\"ld"), "\"hello\"* \"world\"*")
@@ -540,5 +554,56 @@ final class ExcludeAppTests: XCTestCase {
         Prefs.excludeApp("com.example.two")
         Prefs.excludeApp("com.example.two")
         XCTAssertEqual(Prefs.excludedBundleIDs(), ["com.example.one", "com.example.two"])
+    }
+}
+
+@MainActor
+final class ExportTests: XCTestCase {
+    private func makeFrames() -> [Frame] {
+        let start = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 13, hour: 9, minute: 30, second: 5))!
+        return [Frame(id: 1, date: start, app: "Mail", title: "Inbox", path: "a.heic"),
+                Frame(id: 2, date: start.addingTimeInterval(60), app: "Notes", title: "", path: "b.heic", display: 1)]
+    }
+
+    func testFileNamesKeepTheDisplay() {
+        let frames = makeFrames()
+        XCTAssertEqual(Transcript.fileName(for: frames[0], ext: "heic"), "093005.heic")
+        XCTAssertEqual(Transcript.fileName(for: frames[1], ext: "jpg"), "093105-d1.jpg")
+    }
+
+    func testMarkdownTranscript() {
+        let md = Transcript.markdown(title: "Day", frames: makeFrames(), texts: [1: "Hello\nworld", 2: "  "])
+        XCTAssertTrue(md.hasPrefix("# Day\n"))
+        XCTAssertTrue(md.contains("## 2026-10-13 09:30:05 · Mail — Inbox\n\n> Hello\n> world\n"))
+        XCTAssertTrue(md.contains("## 2026-10-13 09:31:05 · Notes (display 2)\n"))
+        XCTAssertFalse(md.contains("> \n"))
+    }
+
+    func testWritingADayCopiesTheFilesAndATranscript() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ts-export-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let frames = makeFrames()
+        for frame in frames { try Data("image".utf8).write(to: root.appendingPathComponent(frame.path)) }
+        let out = root.appendingPathComponent("export")
+        try Exporter.writeDay(frames: frames, texts: [1: "Hello"], title: "Day", root: root, into: out)
+        let names = try FileManager.default.contentsOfDirectory(atPath: out.path).sorted()
+        XCTAssertEqual(names, ["093005.heic", "093105-d1.heic", "transcript.md"])
+        let transcript = try String(contentsOf: out.appendingPathComponent("transcript.md"), encoding: .utf8)
+        XCTAssertTrue(transcript.contains("> Hello"))
+    }
+
+    func testPNGConversion() throws {
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8, samplesPerPixel: 4,
+                                   hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-png-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let (data, _) = try Capturer.encode(rep.cgImage!)
+        let source = dir.appendingPathComponent("in.heic")
+        try data.write(to: source)
+        let png = dir.appendingPathComponent("out.png")
+        try Exporter.writePNG(from: source, to: png)
+        XCTAssertEqual(try Data(contentsOf: png).prefix(4), Data([0x89, 0x50, 0x4E, 0x47]))
     }
 }

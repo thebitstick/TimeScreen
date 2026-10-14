@@ -77,6 +77,9 @@ private struct GeneralPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Check for updates automatically", isOn: $checksForUpdates)
                         .onChange(of: checksForUpdates) { _, on in Updater.shared.automaticallyChecks = on }
+                    if Updater.isDevelopmentBuild {
+                        Note("Development build: new versions are offered but never installed automatically.")
+                    }
                     HStack {
                         Button("Check Now") { Updater.shared.checkForUpdates() }
                         Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")")

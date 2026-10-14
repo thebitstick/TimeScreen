@@ -19,6 +19,7 @@ final class TimelineController {
     private let bridge = ScrubBridge()
 
     var isVisible: Bool { window != nil }
+    var overlayWindow: NSWindow? { window }
 
     func toggle() { isVisible ? hide() : show() }
 

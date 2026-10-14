@@ -40,6 +40,10 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   every frame in that range together with its search entries, word positions and image files, and left the rest.
 - The README screenshots use a fictional day of screenshots drawn by `Scripts/demo-data`, run through the app's real OCR.
   Searching and highlighting in them is the real code path.
+- Export: the file writing (PNG conversion, copying a day's screenshots, the transcript) is unit-tested, and the Save panel was
+  seen opening above the timeline in a test copy with fictional data.
+- The development-build setting: with "install automatically" saved as on, a locally signed build reports automatic updates as
+  off, and a release-style build does not get the flag.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested
@@ -49,6 +53,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   capture are covered by unit tests alone.
 - Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
   the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
+- Clicking through the export menu items and saving real files from them.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.

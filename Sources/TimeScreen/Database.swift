@@ -203,6 +203,16 @@ actor Database {
         }.compactMap { formatter.date(from: $0) }
     }
 
+    func texts(for ids: [Int64]) throws -> [Int64: String] {
+        var result: [Int64: String] = [:]
+        for chunk in stride(from: 0, to: ids.count, by: 400).map({ Array(ids[$0..<min($0 + 400, ids.count)]) }) {
+            let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            let rows = try rows("SELECT rowid, text FROM frames_fts WHERE rowid IN (\(marks))", chunk.map { .int($0) }) { (sqlite3_column_int64($0, 0), Self.text($0, 1)) }
+            for (id, text) in rows { result[id] = text }
+        }
+        return result
+    }
+
     func appBundles() throws -> [(app: String, bundle: String)] {
         try rows("SELECT DISTINCT app, bundle FROM frames WHERE bundle != ''", []) { (Self.text($0, 0), Self.text($0, 1)) }
     }

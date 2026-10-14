@@ -20,6 +20,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineController.swift` | full-screen overlay window, scroll and Esc monitors, Carbon global hotkey, shortcut recorder |
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `JumpTime.swift` | parses the timeline's jump-to-time box (ambiguous hours return both am and pm) |
+| `Export.swift` | saving a frame as an image or text, and exporting a day or search results with a Markdown transcript |
 | `SkipReason.swift` | why capture is skipped (private window, power, disk), plus the battery and free-space readings |
 | `MenuBarState.swift` | which SF Symbol and description the menu bar icon shows |
 | `Authenticator.swift` | the optional Touch ID / password lock on the timeline and its grace period |
@@ -95,6 +96,8 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **Never record this app** (the ⃠ button in the timeline) uses the frame's stored bundle identifier, falling back to
   `AppIcons.bundleIdentifier(for:)` for old frames, and the dialog says so if neither works.
 - **Search results** navigate with ↑ ↓ from the search field (`moveResult`) and Return hands focus back to the timeline.
+- **Export** (`Export.swift`): panels are presented as sheets on the overlay window, because the overlay sits above normal
+  windows and would hide a free-standing panel. File work (`writePNG`, `writeDay`) is `nonisolated` and runs off the main thread.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are
@@ -116,6 +119,9 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
    release; there is no `CHANGELOG.md`.
 - Sparkle is embedded by `Scripts/build-app.sh`, which signs nested code first. The app needs the
   `disable-library-validation` entitlement (`Resources/TimeScreen.entitlements`) because release builds are ad-hoc signed.
+- Builds signed with an "Apple Development" identity get `SUAllowsAutomaticUpdates=false` and `TimeScreenDevBuild=true` added to their
+  built Info.plist (not the source one) by `build-app.sh`, so a dev copy is told about updates but never installs one itself.
+  Release builds are ad-hoc and have neither key.
 - Updates re-prompt for Screen Recording whenever the signing identity differs between builds, including when Sparkle
   replaces a locally signed copy with a release build.
 

@@ -327,6 +327,53 @@ struct TimelineWindow: View {
         }
     }
 
+    private var exportMenu: some View {
+        Menu {
+            if let frame = current {
+                Button("Save Image…") { Exporter.saveImage(of: frame, root: recorder.framesRoot, window: TimelineController.shared.overlayWindow, done: flash) }
+                Button("Copy Image") { flash(Exporter.copyImage(of: frame, root: recorder.framesRoot)) }
+                Button("Save Text…") {
+                    Task {
+                        let text = (try? await recorder.db.texts(for: [frame.id]))?[frame.id] ?? ""
+                        Exporter.saveText(of: frame, text: text, window: TimelineController.shared.overlayWindow, done: flash)
+                    }
+                }
+                Button("Show File in Finder") { NSWorkspace.shared.activateFileViewerSelecting([recorder.framesRoot.appendingPathComponent(frame.path)]) }
+                Divider()
+            }
+            Button("Export This Day…") { exportDay() }
+            if isSearching, !hits.isEmpty {
+                Button("Export Search Results…") { exportSearchResults() }
+            }
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Save or export screenshots and their text")
+    }
+
+    private func exportDay() {
+        let frames = loadedFrames
+        guard !frames.isEmpty else { flash("Nothing to export"); return }
+        let title = "TimeScreen " + day.formatted(.iso8601.year().month().day())
+        Task {
+            let texts = (try? await recorder.db.texts(for: frames.map(\.id))) ?? [:]
+            Exporter.exportDay(frames: frames, texts: texts, title: title, root: recorder.framesRoot,
+                               window: TimelineController.shared.overlayWindow, done: flash)
+        }
+    }
+
+    private func exportSearchResults() {
+        let frames = hits.map(\.frame)
+        let title = "TimeScreen search \(query.trimmingCharacters(in: .whitespaces))"
+        Task {
+            let texts = (try? await recorder.db.texts(for: frames.map(\.id))) ?? [:]
+            Exporter.saveTranscript(frames: frames, texts: texts, title: title,
+                                    window: TimelineController.shared.overlayWindow, done: flash)
+        }
+    }
+
     private var deleteMenu: some View {
         Menu {
             if let frame = current {
@@ -421,6 +468,7 @@ struct TimelineWindow: View {
                 Button { prepareExclusion(frame) } label: { Image(systemName: "nosign") }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
                     .help("Never record \(frame.app)")
+                exportMenu
                 deleteMenu
                 if !boxes.isEmpty {
                     Button("Copy Text", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
