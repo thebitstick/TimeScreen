@@ -40,6 +40,9 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 
 - Check whether the app is already running with `pgrep -fl TimeScreen.app`; `pgrep -x` gives false negatives.
   Quit it before relaunching.
+- `TIMESCREEN_DATA_DIR=/some/dir` points the app at a different data folder. A clean-install test also needs a different
+  bundle identifier (copy the app, change `CFBundleIdentifier`, re-sign) so preferences and the Screen Recording grant start
+  empty. Setting `HOME` does not move the data folder.
 - `.build` records absolute paths: delete it after moving the repository.
 - Changing the bundle identifier resets the app's preferences and its Screen Recording grant.
 
@@ -74,6 +77,10 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 3. `Scripts/publish-appcast.sh vX.Y.Z` signs that zip with the Sparkle private key (login keychain, account
    `TimeScreen`; never export it or commit it) and uploads `appcast.xml` to the release. Use `--dry-run` to write
    `build/appcast.xml` without uploading. Without this step the app's feed (`releases/latest/download/appcast.xml`) 404s.
+4. Replace the release's notes. The workflow only generates a list of commit titles, which hides what a feature is.
+   Write the user-visible changes (what is new, what to know when upgrading) and run
+   `gh release edit vX.Y.Z --notes-file <file>`. Keep the "Installing" section and the compare link. Notes live on the
+   release; there is no `CHANGELOG.md`.
 - Sparkle is embedded by `Scripts/build-app.sh`, which signs nested code first. The app needs the
   `disable-library-validation` entitlement (`Resources/TimeScreen.entitlements`) because release builds are ad-hoc signed.
 - Updates re-prompt for Screen Recording whenever the signing identity differs between builds.

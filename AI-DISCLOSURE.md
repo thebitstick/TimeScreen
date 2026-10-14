@@ -30,15 +30,19 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   and pausing from the menu bar.
 - Checked by the AI against real data: compaction of frames older than a day, and that a private Zen window stops
   a screen being captured.
+- The storage size limit, against real files in a temporary folder: it deletes the oldest frames, their search
+  entries and empty day folders, and stops at 90% of the limit. That test found and fixed a bug where a small limit
+  could delete every frame instead of stopping at the target.
+- The first-run welcome window, on a throwaway copy with its own bundle identifier and data folder: it opens by
+  itself on an empty history, shows the permission as not yet granted and no system prompt appears.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.3) from signed releases.
 
 ## What was not tested
 
-- The storage size limit on real files. Only its database queries are tested, because the history has never come
-  near the smallest limit (5 GB).
+- The storage size limit on the author's own history, which has never come near the smallest limit (5 GB).
 - Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display
   capture are covered by unit tests alone.
-- The first-run welcome window on a clean install. It was checked by screenshot only.
+- Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.
 - macOS versions other than the author's, and any build other than the author's, including other signing

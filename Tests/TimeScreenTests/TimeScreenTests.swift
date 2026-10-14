@@ -326,3 +326,84 @@ final class JumpTimeTests: XCTestCase {
         for text in ["", "abc", "25:00", "13pm", "3:75", "0pm", "3:4"] { XCTAssertEqual(hours(text), [], text) }
     }
 }
+
+final class StorageCapTests: XCTestCase {
+    private func makeRoot() throws -> URL {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("timescreen-cap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return root
+    }
+
+    private func fill(_ db: Database, root: URL, days: Int, perDay: Int, bytes: Int) async throws {
+        let start = Calendar.current.startOfDay(for: Date()).addingTimeInterval(-Double(days) * 86_400)
+        for day in 0..<days {
+            for n in 0..<perDay {
+                let date = start.addingTimeInterval(Double(day) * 86_400 + Double(n) * 60)
+                let path = Recorder.relativePath(for: date, ext: "heic")
+                let url = root.appendingPathComponent(path)
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data(repeating: 7, count: bytes).write(to: url)
+                try await db.insert(date: date, app: "A", title: "", path: path, text: "frame \(day)-\(n)",
+                                    boxes: WordBox.pack([WordBox(t: "x", x: 0, y: 0, w: 1, h: 1)]))
+            }
+        }
+    }
+
+    func testDeletesTheOldestFramesDownToNinetyPercentOfTheCap() async throws {
+        let root = try makeRoot()
+        let db = try Database(path: root.appendingPathComponent("index.sqlite").path)
+        let frames = root.appendingPathComponent("frames")
+        try FileManager.default.createDirectory(at: frames, withIntermediateDirectories: true)
+        try await fill(db, root: frames, days: 3, perDay: 10, bytes: 64 * 1024)
+        let before = await Storage.usage(of: frames)
+        let cap = before * 6 / 10
+        let everything = try await db.oldestFrames(limit: 1000)
+
+        let removed = await Storage.enforce(cap: cap, root: frames, db: db)
+        XCTAssertTrue(removed)
+
+        let after = await Storage.usage(of: frames)
+        XCTAssertLessThanOrEqual(after, Int64(Double(cap) * 0.9))
+        XCTAssertGreaterThan(after, 0)
+
+        let remaining = try await db.oldestFrames(limit: 1000)
+        XCTAssertLessThan(remaining.count, 30)
+        XCTAssertGreaterThan(remaining.count, 0)
+        XCTAssertEqual(remaining.map(\.date), remaining.map(\.date).sorted())
+        for frame in remaining { XCTAssertTrue(FileManager.default.fileExists(atPath: frames.appendingPathComponent(frame.path).path)) }
+
+        let all = try await db.search("frame", limit: 1000)
+        XCTAssertEqual(all.count, remaining.count)
+        XCTAssertEqual(remaining.map(\.id), everything.suffix(remaining.count).map(\.id))
+        let files = try FileManager.default.subpathsOfDirectory(atPath: frames.path).filter { $0.hasSuffix(".heic") }
+        XCTAssertEqual(files.count, remaining.count)
+    }
+
+    func testNothingIsDeletedUnderTheCap() async throws {
+        let root = try makeRoot()
+        let db = try Database(path: root.appendingPathComponent("index.sqlite").path)
+        let frames = root.appendingPathComponent("frames")
+        try FileManager.default.createDirectory(at: frames, withIntermediateDirectories: true)
+        try await fill(db, root: frames, days: 1, perDay: 5, bytes: 32 * 1024)
+        let removed = await Storage.enforce(cap: 10_000_000, root: frames, db: db)
+        XCTAssertFalse(removed)
+        let remaining = try await db.oldestFrames(limit: 100)
+        XCTAssertEqual(remaining.count, 5)
+    }
+
+    func testEmptyDayFoldersAreRemoved() async throws {
+        let root = try makeRoot()
+        let db = try Database(path: root.appendingPathComponent("index.sqlite").path)
+        let frames = root.appendingPathComponent("frames")
+        try FileManager.default.createDirectory(at: frames, withIntermediateDirectories: true)
+        try await fill(db, root: frames, days: 3, perDay: 4, bytes: 64 * 1024)
+        let before = await Storage.usage(of: frames)
+        _ = await Storage.enforce(cap: before / 3, root: frames, db: db)
+        let folders = try FileManager.default.contentsOfDirectory(atPath: frames.path)
+        for folder in folders {
+            let inside = try FileManager.default.contentsOfDirectory(atPath: frames.appendingPathComponent(folder).path)
+            XCTAssertFalse(inside.isEmpty, "\(folder) should not be left empty")
+        }
+    }
+}

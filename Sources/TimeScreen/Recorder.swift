@@ -27,8 +27,9 @@ final class Recorder: ObservableObject {
     private var lastCompact = Date.distantPast
 
     private init() {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("TimeScreen", isDirectory: true)
+        let support = ProcessInfo.processInfo.environment["TIMESCREEN_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("TimeScreen", isDirectory: true)
         framesRoot = support.appendingPathComponent("frames", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: framesRoot, withIntermediateDirectories: true)
@@ -83,19 +84,7 @@ final class Recorder: ObservableObject {
         revision += 1
     }
 
-    func diskUsage() async -> Int64 {
-        let root = framesRoot
-        return await Task.detached(priority: .utility) {
-            let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey]
-            let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys)
-            var total: Int64 = 0
-            while let url = files?.nextObject() as? URL {
-                total += Int64((try? url.resourceValues(forKeys: Set(keys)).totalFileAllocatedSize) ?? 0)
-            }
-            return total
-        }.value
-    }
-
+    func diskUsage() async -> Int64 { await Storage.usage(of: framesRoot) }
 
     private func startLoop() {
         loop?.cancel()
@@ -206,48 +195,16 @@ final class Recorder: ObservableObject {
         let days = UserDefaults.standard.integer(forKey: Prefs.retentionDays)
         guard days > 0, let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) else { return }
         guard let paths = try? await db.prune(before: cutoff), !paths.isEmpty else { return }
-        await Self.removeFiles(paths, under: framesRoot)
+        await Storage.removeFiles(paths, under: framesRoot)
         revision += 1
     }
 
     private func enforceStorageCap() async {
         lastCapCheck = Date()
         let gigabytes = UserDefaults.standard.integer(forKey: Prefs.maxStorageGB)
-        guard gigabytes > 0 else { return }
-        let cap = Int64(gigabytes) * 1_000_000_000
-        var remaining = await diskUsage()
-        guard remaining > cap else { return }
-        let target = Int64(Double(cap) * 0.9)
-        var removedAny = false
-        while remaining > target {
-            guard let batch = try? await db.oldestFrames(limit: 200), !batch.isEmpty else { break }
-            let freed = await Self.removeFiles(batch.map(\.path), under: framesRoot)
-            guard (try? await db.delete(ids: batch.map(\.id))) != nil else { break }
-            remaining -= freed
-            removedAny = true
-        }
-        if removedAny {
-            revision += 1
-            await refreshToday()
-        }
-    }
-
-    @discardableResult
-    private nonisolated static func removeFiles(_ paths: [String], under root: URL) async -> Int64 {
-        await Task.detached(priority: .utility) {
-            let fm = FileManager.default
-            var freed: Int64 = 0
-            for path in paths {
-                let url = root.appendingPathComponent(path)
-                freed += Int64((try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]).totalFileAllocatedSize) ?? 0)
-                try? fm.removeItem(at: url)
-            }
-            for dir in (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-            where ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? ["x"]).isEmpty {
-                try? fm.removeItem(at: dir)
-            }
-            return freed
-        }.value
+        guard gigabytes > 0, await Storage.enforce(cap: Int64(gigabytes) * 1_000_000_000, root: framesRoot, db: db) else { return }
+        revision += 1
+        await refreshToday()
     }
 
     nonisolated static func relativePath(for date: Date, display: Int = 0, ext: String) -> String {
