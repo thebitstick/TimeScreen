@@ -116,6 +116,8 @@ actor Database {
             "CREATE TABLE IF NOT EXISTS frames(id INTEGER PRIMARY KEY, ts REAL NOT NULL, app TEXT NOT NULL, title TEXT NOT NULL, path TEXT NOT NULL)",
             "CREATE INDEX IF NOT EXISTS frames_ts ON frames(ts)",
             "CREATE TABLE IF NOT EXISTS boxes(frame_id INTEGER PRIMARY KEY, data BLOB NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS summaries(kind TEXT NOT NULL, key TEXT NOT NULL, start REAL NOT NULL, end REAL NOT NULL, text TEXT NOT NULL, inputs INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, PRIMARY KEY(kind, key))",
+            "CREATE INDEX IF NOT EXISTS summaries_range ON summaries(start, end)",
             "CREATE VIRTUAL TABLE IF NOT EXISTS frames_fts USING fts5(text, app, title, tokenize='unicode61 remove_diacritics 2')",
         ] {
             guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
@@ -152,6 +154,7 @@ actor Database {
         try run("DELETE FROM frames_fts WHERE rowid IN (SELECT id FROM frames WHERE ts < ? AND starred = 0)", [cutoff])
         try run("DELETE FROM boxes WHERE frame_id IN (SELECT id FROM frames WHERE ts < ? AND starred = 0)", [cutoff])
         try run("DELETE FROM frames WHERE ts < ? AND starred = 0", [cutoff])
+        try run("DELETE FROM summaries WHERE start < ?", [cutoff])
         return paths
     }
 
@@ -160,6 +163,10 @@ actor Database {
     }
 
     func delete(ids: [Int64]) throws {
+        if let span = try rows("SELECT MIN(ts), MAX(ts) FROM frames WHERE id IN (\(ids.map(String.init).joined(separator: ",")))", [], map: { (sqlite3_column_double($0, 0), sqlite3_column_double($0, 1)) }).first,
+           !ids.isEmpty {
+            try run("DELETE FROM summaries WHERE end >= ? AND start <= ?", [.double(span.0), .double(span.1)])
+        }
         for id in ids {
             try run("DELETE FROM frames_fts WHERE rowid = ?", [.int(id)])
             try run("DELETE FROM boxes WHERE frame_id = ?", [.int(id)])
@@ -171,6 +178,7 @@ actor Database {
         try run("DELETE FROM frames_fts", [])
         try run("DELETE FROM boxes", [])
         try run("DELETE FROM frames", [])
+        try run("DELETE FROM summaries", [])
     }
 
     func framesToCompact(before date: Date, limit: Int) throws -> [Frame] {
@@ -247,6 +255,31 @@ actor Database {
         try rows("SELECT id, ts, app, title, path, display, bundle, starred FROM frames ORDER BY ts DESC LIMIT 1", [], map: Self.frame).first
     }
 
+    func saveSummary(_ record: SummaryRecord) throws {
+        try run("INSERT OR REPLACE INTO summaries(kind, key, start, end, text, inputs, created) VALUES(?,?,?,?,?,?,?)",
+                [.text(record.kind.rawValue), .text(record.key), .double(record.start.timeIntervalSince1970),
+                 .double(record.end.timeIntervalSince1970), .text(record.text), .int(Int64(record.inputs)),
+                 .double(record.created.timeIntervalSince1970)])
+    }
+
+    func summary(kind: SummaryKind, key: String) throws -> SummaryRecord? {
+        try rows("SELECT kind, key, start, end, text, inputs, created FROM summaries WHERE kind = ? AND key = ?",
+                 [.text(kind.rawValue), .text(key)], map: Self.summaryRecord).first
+    }
+
+    func summaries(kind: SummaryKind, from start: Date, to end: Date) throws -> [SummaryRecord] {
+        try rows("SELECT kind, key, start, end, text, inputs, created FROM summaries WHERE kind = ? AND start >= ? AND start < ? ORDER BY start",
+                 [.text(kind.rawValue), .double(start.timeIntervalSince1970), .double(end.timeIntervalSince1970)], map: Self.summaryRecord)
+    }
+
+    func summaryCount() throws -> Int {
+        try rows("SELECT COUNT(*) FROM summaries", []) { Int(sqlite3_column_int64($0, 0)) }.first ?? 0
+    }
+
+    func deleteAllSummaries() throws {
+        try run("DELETE FROM summaries", [])
+    }
+
     func appBundles() throws -> [(app: String, bundle: String)] {
         try rows("SELECT DISTINCT app, bundle FROM frames WHERE bundle != ''", []) { (Self.text($0, 0), Self.text($0, 1)) }
     }
@@ -294,6 +327,14 @@ actor Database {
 
     private nonisolated static func text(_ stmt: OpaquePointer, _ column: Int32) -> String {
         sqlite3_column_text(stmt, column).map { String(cString: $0) } ?? ""
+    }
+
+    private nonisolated static func summaryRecord(_ stmt: OpaquePointer) -> SummaryRecord {
+        SummaryRecord(kind: SummaryKind(rawValue: text(stmt, 0)) ?? .frame, key: text(stmt, 1),
+                      start: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2)),
+                      end: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3)),
+                      text: text(stmt, 4), inputs: Int(sqlite3_column_int64(stmt, 5)),
+                      created: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 6)))
     }
 
     private nonisolated static func frame(_ stmt: OpaquePointer) -> Frame {

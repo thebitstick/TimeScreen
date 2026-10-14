@@ -1011,3 +1011,152 @@ final class StarredFramesTests: XCTestCase {
         XCTAssertEqual(files, ["f1.heic", "f2.heic"])
     }
 }
+
+final class SummaryWindowTests: XCTestCase {
+    private var calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
+
+    private func date(_ hour: Int, _ minute: Int, _ second: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 10, day: 13, hour: hour, minute: minute, second: second))!
+    }
+
+    func testBlocksAreQuarterHours() {
+        let block = SummaryWindow.block(containing: date(14, 37, 12), calendar: calendar)
+        XCTAssertEqual(block.start, date(14, 30))
+        XCTAssertEqual(block.end, date(14, 45))
+        XCTAssertEqual(block.key, "2026-10-13 14:30")
+        XCTAssertEqual(SummaryWindow.block(containing: date(14, 30), calendar: calendar).start, date(14, 30))
+        XCTAssertEqual(SummaryWindow.block(containing: date(14, 59, 59), calendar: calendar).start, date(14, 45))
+        XCTAssertEqual(SummaryWindow.block(containing: date(0, 0), calendar: calendar).key, "2026-10-13 00:00")
+    }
+
+    func testHoursAndDaysAndTheirParts() {
+        let hour = SummaryWindow.hour(containing: date(9, 20), calendar: calendar)
+        XCTAssertEqual(hour.key, "2026-10-13 09")
+        XCTAssertEqual(hour.blocks(calendar: calendar).map(\.key), ["2026-10-13 09:00", "2026-10-13 09:15", "2026-10-13 09:30", "2026-10-13 09:45"])
+        let day = SummaryWindow.day(containing: date(9, 20), calendar: calendar)
+        XCTAssertEqual(day.key, "2026-10-13")
+        XCTAssertEqual(day.hours(calendar: calendar).count, 24)
+        XCTAssertEqual(day.hours(calendar: calendar).first?.key, "2026-10-13 00")
+        XCTAssertEqual(day.blocks(calendar: calendar).count, 96)
+        XCTAssertTrue(SummaryWindow.block(containing: date(9, 0), calendar: calendar).blocks(calendar: calendar).isEmpty)
+    }
+
+    func testAppAndFrameKeys() {
+        XCTAssertEqual(SummaryWindow.app("Mail", on: date(10, 0), calendar: calendar).key, "2026-10-13|Mail")
+        let frame = Frame(id: 42, date: date(10, 0), app: "Mail", title: "", path: "x")
+        XCTAssertEqual(SummaryWindow.frame(frame).key, "42")
+        XCTAssertEqual(SummaryWindow.frame(frame).kind, .frame)
+    }
+}
+
+final class SummaryInputTests: XCTestCase {
+    func testSamplingKeepsTheEndsAndSpreadsTheRest() {
+        XCTAssertEqual(SummaryInput.sample(Array(0..<10), limit: 4), [0, 3, 6, 9])
+        XCTAssertEqual(SummaryInput.sample(Array(0..<3), limit: 10), [0, 1, 2])
+        XCTAssertEqual(SummaryInput.sample(Array(0..<100), limit: 2), [0, 99])
+        XCTAssertEqual(SummaryInput.sample(Array(0..<5), limit: 1), [0])
+        XCTAssertTrue(SummaryInput.sample([Int](), limit: 5).isEmpty)
+    }
+
+    func testRepeatedChromeIsDroppedAndNewLinesKeptInOrder() {
+        let frames = (1...10).map { "Menu Bar File Edit\nSidebar\nline \($0)\nshared note" }
+        let condensed = SummaryInput.condense(frames, maxCharacters: 10_000)
+        XCTAssertFalse(condensed.contains("Menu Bar"))
+        XCTAssertFalse(condensed.contains("Sidebar"))
+        XCTAssertFalse(condensed.contains("shared note"))
+        XCTAssertEqual(condensed.split(separator: "\n").map(String.init), (1...10).map { "line \($0)" })
+    }
+
+    func testFewFramesKeepEverythingOnceAndTheBudgetIsHonoured() {
+        let condensed = SummaryInput.condense(["alpha beta\nalpha beta\ngamma delta", "alpha beta\nepsilon"], maxCharacters: 10_000)
+        XCTAssertEqual(condensed.split(separator: "\n").map(String.init), ["alpha beta", "gamma delta", "epsilon"])
+        let limited = SummaryInput.condense(["aaaa aaaa\nbbbb bbbb\ncccc cccc"], maxCharacters: 22)
+        XCTAssertEqual(limited, "aaaa aaaa\nbbbb bbbb")
+        XCTAssertEqual(SummaryInput.condense(["a\n  \nbb"], maxCharacters: 100), "")
+        XCTAssertEqual(SummaryInput.shorten("abcdef", to: 3), "abc")
+        XCTAssertEqual(SummaryInput.shorten("ab", to: 3), "ab")
+    }
+
+    func testPromptsCarryTheFactsTheModelNeeds() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let stretch = SummaryPrompt.stretch(label: "09:00–09:15", apps: [("Mail", 3), ("Notes", 9)], text: "hello")
+        XCTAssertTrue(stretch.contains("Notes (9 screenshots), Mail (3 screenshots)"))
+        XCTAssertTrue(stretch.contains("09:00–09:15"))
+        let frame = SummaryPrompt.frame(app: "Mail", title: "Inbox", date: start, text: "hi")
+        XCTAssertTrue(frame.contains("App: Mail") && frame.contains("Window: Inbox") && frame.contains("hi"))
+        XCTAssertFalse(SummaryPrompt.frame(app: "Mail", title: "", date: start, text: "hi").contains("Window:"))
+        let rollup = SummaryPrompt.rollup(title: "Hour 9", notes: [("09:00–09:15", "Read mail."), ("09:15–09:30", "Wrote notes.")])
+        XCTAssertTrue(rollup.contains("09:00–09:15: Read mail.\n09:15–09:30: Wrote notes."))
+        XCTAssertEqual(SummaryPrompt.timeLabel(start, start.addingTimeInterval(900)).count, 11)
+    }
+}
+
+final class SummaryStoreTests: XCTestCase {
+    private func makeDatabase() throws -> Database {
+        try Database(path: NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite")
+    }
+
+    private func record(_ kind: SummaryKind, _ key: String, start: Date, end: Date, text: String = "text", inputs: Int = 1) -> SummaryRecord {
+        SummaryRecord(kind: kind, key: key, start: start, end: end, text: text, inputs: inputs, created: Date())
+    }
+
+    func testSummariesAreSavedReplacedAndListed() async throws {
+        let db = try makeDatabase()
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        try await db.saveSummary(record(.block, "b1", start: start, end: start.addingTimeInterval(900), text: "first"))
+        try await db.saveSummary(record(.block, "b2", start: start.addingTimeInterval(900), end: start.addingTimeInterval(1800)))
+        try await db.saveSummary(record(.block, "b1", start: start, end: start.addingTimeInterval(900), text: "replaced", inputs: 7))
+        let one = try await db.summary(kind: .block, key: "b1")
+        XCTAssertEqual(one?.text, "replaced")
+        XCTAssertEqual(one?.inputs, 7)
+        let missing = try await db.summary(kind: .hour, key: "b1")
+        XCTAssertNil(missing)
+        let listed = try await db.summaries(kind: .block, from: start, to: start.addingTimeInterval(3600))
+        XCTAssertEqual(listed.map(\.key), ["b1", "b2"])
+        let count = try await db.summaryCount()
+        XCTAssertEqual(count, 2)
+        try await db.deleteAllSummaries()
+        let none = try await db.summaryCount()
+        XCTAssertEqual(none, 0)
+    }
+
+    func testDeletingFramesRemovesTheSummariesThatCoverThem() async throws {
+        let db = try makeDatabase()
+        let base = Date().addingTimeInterval(-86_400 * 3)
+        let a = try await db.insert(date: base, app: "A", title: "", path: "a", text: "one")
+        let b = try await db.insert(date: base.addingTimeInterval(7200), app: "A", title: "", path: "b", text: "two")
+        try await db.saveSummary(record(.block, "covers-a", start: base.addingTimeInterval(-60), end: base.addingTimeInterval(840)))
+        try await db.saveSummary(record(.block, "covers-b", start: base.addingTimeInterval(7200), end: base.addingTimeInterval(8100)))
+        try await db.saveSummary(record(.day, "all-day", start: base.addingTimeInterval(-3600), end: base.addingTimeInterval(86_400)))
+        try await db.saveSummary(record(.block, "elsewhere", start: base.addingTimeInterval(40_000), end: base.addingTimeInterval(40_900)))
+
+        try await db.delete(ids: [a])
+        let afterFirst = try await db.summaries(kind: .block, from: base.addingTimeInterval(-86_400), to: base.addingTimeInterval(86_400 * 2))
+        XCTAssertEqual(afterFirst.map(\.key), ["covers-b", "elsewhere"])
+        let day = try await db.summary(kind: .day, key: "all-day")
+        XCTAssertNil(day)
+
+        try await db.delete(ids: [b])
+        let afterSecond = try await db.summaries(kind: .block, from: base.addingTimeInterval(-86_400), to: base.addingTimeInterval(86_400 * 2))
+        XCTAssertEqual(afterSecond.map(\.key), ["elsewhere"])
+        try await db.delete(ids: [])
+    }
+
+    func testPruningAndDeleteAllClearSummaries() async throws {
+        let db = try makeDatabase()
+        let old = Date().addingTimeInterval(-86_400 * 40)
+        _ = try await db.insert(date: old, app: "A", title: "", path: "o", text: "old")
+        try await db.saveSummary(record(.hour, "old-hour", start: old, end: old.addingTimeInterval(3600)))
+        try await db.saveSummary(record(.hour, "new-hour", start: Date(), end: Date().addingTimeInterval(3600)))
+        _ = try await db.prune(before: Date().addingTimeInterval(-86_400 * 30))
+        let remaining = try await db.summaryCount()
+        XCTAssertEqual(remaining, 1)
+        try await db.deleteAll()
+        let none = try await db.summaryCount()
+        XCTAssertEqual(none, 0)
+    }
+}

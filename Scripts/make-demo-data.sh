@@ -7,5 +7,5 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:?usage: make-demo-data.sh <output dir> [yyyy-MM-dd]}"
 DAY="${2:-$(date -v-1d +%Y-%m-%d)}"
 BIN="$(mktemp -d)/demo-data"
-swiftc -O -o "$BIN" "$ROOT/Scripts/demo-data/main.swift" "$ROOT/Sources/TimeScreen/Database.swift" "$ROOT/Sources/TimeScreen/SearchQuery.swift" "$ROOT/Sources/TimeScreen/Capturer.swift" -lsqlite3
+swiftc -O -o "$BIN" "$ROOT/Scripts/demo-data/main.swift" "$ROOT/Sources/TimeScreen/Database.swift" "$ROOT/Sources/TimeScreen/SearchQuery.swift" "$ROOT/Sources/TimeScreen/SummaryInput.swift" "$ROOT/Sources/TimeScreen/Capturer.swift" -lsqlite3
 "$BIN" "$OUT" "$DAY"
