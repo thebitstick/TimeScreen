@@ -11,6 +11,8 @@ enum Prefs {
     static let scrollToOpen = "scrollToOpen"
     static let skipPrivate = "skipPrivate"
     static let welcomeShown = "welcomeShown"
+    static let requireAuth = "requireAuth"
+    static let authGrace = "authGrace"
     static let privateTitles = "privateTitles"
     static let excludedApps = "excludedApps"
     static let hotkeyCode = "hotkeyCode"
@@ -42,6 +44,8 @@ enum Prefs {
             allDisplays: true,
             scrollToOpen: true,
             skipPrivate: true,
+            requireAuth: false,
+            authGrace: 60.0,
             privateTitles: defaultPrivateTitles,
             excludedApps: defaultExcluded,
             hotkeyCode: 17,

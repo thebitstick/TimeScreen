@@ -407,3 +407,29 @@ final class StorageCapTests: XCTestCase {
         }
     }
 }
+
+final class UnlockWindowTests: XCTestCase {
+    func testStaysOpenOnlyWithinTheGracePeriod() {
+        var window = UnlockWindow()
+        let start = Date()
+        XCTAssertFalse(window.isOpen(grace: 60, now: start))
+        window.markUnlocked(at: start)
+        XCTAssertTrue(window.isOpen(grace: 60, now: start.addingTimeInterval(30)))
+        XCTAssertFalse(window.isOpen(grace: 60, now: start.addingTimeInterval(61)))
+    }
+
+    func testEveryTimeAlwaysAsks() {
+        var window = UnlockWindow()
+        let start = Date()
+        window.markUnlocked(at: start)
+        XCTAssertFalse(window.isOpen(grace: 0, now: start))
+    }
+
+    func testInvalidatingForcesAnotherPrompt() {
+        var window = UnlockWindow()
+        let start = Date()
+        window.markUnlocked(at: start)
+        window.invalidate()
+        XCTAssertFalse(window.isOpen(grace: 900, now: start))
+    }
+}

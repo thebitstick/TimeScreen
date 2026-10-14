@@ -24,6 +24,17 @@ final class TimelineController {
 
     func show() {
         guard window == nil else { return }
+        if Authenticator.shared.needsPrompt {
+            Task {
+                if await Authenticator.shared.unlock() { present() }
+            }
+        } else {
+            present()
+        }
+    }
+
+    private func present() {
+        guard window == nil else { return }
         let mouse = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouse, $0.frame, false) }) ?? NSScreen.main else { return }
 
@@ -70,6 +81,7 @@ final class TimelineController {
         window?.orderOut(nil)
         window = nil
         Recorder.shared.setTimelineOpen(false)
+        Authenticator.shared.timelineClosed()
     }
 
     /// The filmstrip is the widest-and-flattest scroll view in the window (the results list is tall).

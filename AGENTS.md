@@ -20,6 +20,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineController.swift` | full-screen overlay window, scroll and Esc monitors, Carbon global hotkey, shortcut recorder |
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `JumpTime.swift` | parses the timeline's jump-to-time box (ambiguous hours return both am and pm) |
+| `Authenticator.swift` | the optional Touch ID / password lock on the timeline and its grace period |
 | `SettingsView.swift`, `Prefs.swift` | tabbed settings and the `UserDefaults` keys |
 | `Tests/TimeScreenTests` | unit tests (database, signature, word boxes, compaction) |
 | `WelcomeWindow.swift` | first-run window (shown only when the database is empty; `--welcome` forces it; `--timeline` opens the timeline at launch, for screenshots) |
@@ -63,6 +64,11 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   centered on that display (`Windows.topWindow`), falling back to the frontmost app. Excluded apps, TimeScreen
   itself and private windows skip only that display. Private windows are detected by title keywords
   (`Prefs.privateTitles`), a heuristic: browsers word their private titles differently.
+- **Timeline lock** (`Authenticator`, opt-in): every way of opening the timeline goes through `TimelineController.show()`, which
+  asks `LAContext` (`.deviceOwnerAuthentication`, so a password works without Touch ID) when `requireAuth` is on and the grace
+  period since the timeline last closed has passed. Sleep, screen lock and session switch end the grace period. It guards the
+  timeline only; the screenshots on disk are plain files (FileVault is the answer there). Turning the lock on requires
+  authenticating once, so a Mac with no password cannot lock itself out.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against

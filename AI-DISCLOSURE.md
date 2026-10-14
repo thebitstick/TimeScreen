@@ -42,6 +42,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - The storage size limit on the author's own history, which has never come near the smallest limit (5 GB).
 - Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display
   capture are covered by unit tests alone.
+- The timeline lock on a real authentication prompt: its grace-period logic is unit-tested, but the Touch ID / password
+  flow itself has not been run, and nothing checks that every route to the timeline is covered beyond reading the code.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.

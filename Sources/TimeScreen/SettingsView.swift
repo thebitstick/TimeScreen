@@ -7,6 +7,7 @@ struct SettingsView: View {
         TabView {
             GeneralPane().tabItem { Label("General", systemImage: "gearshape") }
             ScreenPane().tabItem { Label("Screen", systemImage: "display") }
+            PrivacyPane().tabItem { Label("Privacy", systemImage: "lock") }
             StoragePane(recorder: recorder).tabItem { Label("Storage", systemImage: "externaldrive") }
             ShortcutsPane().tabItem { Label("Shortcuts", systemImage: "keyboard") }
         }
@@ -103,9 +104,6 @@ private struct ScreenPane: View {
     @AppStorage(Prefs.interval) private var interval = 5.0
     @AppStorage(Prefs.ocr) private var ocr = true
     @AppStorage(Prefs.allDisplays) private var allDisplays = true
-    @AppStorage(Prefs.excludedApps) private var excluded = Prefs.defaultExcluded
-    @AppStorage(Prefs.skipPrivate) private var skipPrivate = true
-    @AppStorage(Prefs.privateTitles) private var privateTitles = Prefs.defaultPrivateTitles
 
     var body: some View {
         Form {
@@ -125,6 +123,55 @@ private struct ScreenPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Make screen text searchable", isOn: $ocr)
                     Note("Reads the text in each screenshot on this Mac, so you can find it later.")
+                }
+            }
+            .padding(.vertical, 5)
+        }
+        .formStyle(.columns)
+        .padding(.vertical, 8)
+    }
+}
+
+private struct PrivacyPane: View {
+    @AppStorage(Prefs.requireAuth) private var requireAuth = false
+    @AppStorage(Prefs.authGrace) private var authGrace = 60.0
+    @AppStorage(Prefs.excludedApps) private var excluded = Prefs.defaultExcluded
+    @AppStorage(Prefs.skipPrivate) private var skipPrivate = true
+    @AppStorage(Prefs.privateTitles) private var privateTitles = Prefs.defaultPrivateTitles
+    @State private var lockMessage: String?
+
+    private var lockToggle: Binding<Bool> {
+        Binding(
+            get: { requireAuth },
+            set: { on in
+                guard on else { requireAuth = false; lockMessage = nil; return }
+                Task {
+                    if await Authenticator.evaluate("Turn on the timeline lock") {
+                        requireAuth = true
+                        lockMessage = nil
+                    } else {
+                        lockMessage = "The lock wasn't turned on. Authenticate with Touch ID or your password to enable it."
+                    }
+                }
+            })
+    }
+
+    var body: some View {
+        Form {
+            LabeledContent("Timeline lock:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Require Touch ID or your password to open the timeline", isOn: lockToggle)
+                    if requireAuth {
+                        Picker("Ask again:", selection: $authGrace) {
+                            Text("Every time").tag(0.0)
+                            Text("After 1 minute away").tag(60.0)
+                            Text("After 5 minutes away").tag(300.0)
+                            Text("After 15 minutes away").tag(900.0)
+                        }
+                        .fixedSize()
+                    }
+                    if let lockMessage { Text(lockMessage).font(.caption).foregroundStyle(.red) }
+                    Note("Locks the timeline only, and it locks again when the Mac sleeps or the screen locks. Screenshots are ordinary files in the data folder, so turn on FileVault to protect them at rest.")
                 }
             }
             .padding(.vertical, 5)

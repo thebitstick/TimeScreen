@@ -13,6 +13,7 @@ inferencing. Everything stays on your Mac.
 - Pauses while the screen is off, the Mac sleeps or the session is locked; never records TimeScreen itself
 - Command + Shift + scroll opens the timeline; filter by app, copy text out of any screenshot, and a picker for each display
 - A colored activity bar showing which app you were in all day, a calendar for picking days, and match highlighting on the screenshot
+- Optional timeline lock: require Touch ID, Apple Watch or your password to open the timeline, and lock again when the Mac sleeps or locks
 - Excluded apps (password managers by default), retention (7 days to forever) and an optional size limit that deletes the oldest screenshots first, open at login
 
 Data lives in `~/Library/Application Support/TimeScreen` (`frames/` HEIC screenshots and `index.sqlite`).
