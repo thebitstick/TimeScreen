@@ -30,7 +30,8 @@ struct TimelineWindow: View {
     @State private var jumpText = ""
     @State private var jumpFailed = false
     @State private var selection: CGRect?
-    @State private var copiedMessage: String?
+    @State private var statusMessage: String?
+    @State private var deleteRequest: DeleteRequest?
     @FocusState private var focused: Bool
 
     private var displays: [Int] { Set(loadedFrames.map(\.display)).sorted() }
@@ -88,6 +89,14 @@ struct TimelineWindow: View {
         .onChange(of: appFilter) { keepSelectionVisible() }
         .task(id: selectedID) { await loadImage() }
         .task(id: BoxKey(id: selectedID, searching: isSearching)) { await loadBoxes() }
+        .confirmationDialog(deleteRequest?.title ?? "", isPresented: Binding(get: { deleteRequest != nil }, set: { if !$0 { deleteRequest = nil } }),
+                            titleVisibility: .visible, presenting: deleteRequest) { request in
+            Button("Delete \(request.frames.count) \(request.frames.count == 1 ? "Frame" : "Frames")", role: .destructive) {
+                Task { await performDelete(request) }
+            }
+        } message: { request in
+            Text("The screenshots and their search text are removed. This can't be undone.")
+        }
         .onChange(of: recorder.revision) {
             Task {
                 await reloadDays()
@@ -279,11 +288,73 @@ struct TimelineWindow: View {
         guard !words.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(WordBox.text(of: words), forType: .string)
-        copiedMessage = selection == nil ? "Copied all text" : "Copied \(words.count) \(words.count == 1 ? "word" : "words")"
+        statusMessage = selection == nil ? "Copied all text" : "Copied \(words.count) \(words.count == 1 ? "word" : "words")"
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            copiedMessage = nil
+            statusMessage = nil
         }
+    }
+
+    private var deleteMenu: some View {
+        Menu {
+            if let frame = current {
+                Button("Delete This Frame…") { prepareDelete("Delete this frame?") { [frame] } }
+            }
+            Divider()
+            Button("Delete Last 5 Minutes…") { prepareDelete("Delete the last 5 minutes?") { await recorder.frames(lastMinutes: 5) } }
+            Button("Delete Last 15 Minutes…") { prepareDelete("Delete the last 15 minutes?") { await recorder.frames(lastMinutes: 15) } }
+            Button("Delete Last Hour…") { prepareDelete("Delete the last hour?") { await recorder.frames(lastMinutes: 60) } }
+            Divider()
+            Button("Delete This Day…") {
+                prepareDelete("Delete \(day.formatted(.dateTime.weekday(.wide).month().day()))?") { (try? await recorder.db.frames(on: day)) ?? [] }
+            }
+        } label: {
+            Image(systemName: "trash")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Delete screenshots from your history")
+    }
+
+    private func flash(_ message: String) {
+        statusMessage = message
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            statusMessage = nil
+        }
+    }
+
+    private func prepareDelete(_ title: String, _ load: @escaping () async -> [Frame]) {
+        Task {
+            let frames = await load()
+            guard !frames.isEmpty else { flash("Nothing to delete"); return }
+            deleteRequest = DeleteRequest(title: title, frames: frames)
+        }
+    }
+
+    private func performDelete(_ request: DeleteRequest) async {
+        let removed = Set(request.frames.map(\.id))
+        let anchor = current?.date
+        await recorder.delete(request.frames)
+        hits.removeAll { removed.contains($0.frame.id) }
+        await reloadDays()
+        loadedFrames = (try? await recorder.db.frames(on: day)) ?? []
+        if loadedFrames.isEmpty, let other = days.first(where: { $0 != day && $0 <= day }) ?? days.first(where: { $0 != day }) {
+            day = other
+            return
+        }
+        if !displays.contains(display) { display = displays.first ?? 0 }
+        if let filter = appFilter, !dayFrames.contains(where: { $0.app == filter }) { appFilter = nil }
+        if let id = selectedID, removed.contains(id) {
+            selectedID = nil
+            let visible = frames
+            if let anchor, let i = Activity.nearest(visible, to: anchor.timeIntervalSince1970) {
+                select(visible[i].id, animated: false)
+            } else if let last = visible.last {
+                select(last.id, animated: false)
+            }
+        }
+        flash("Deleted \(removed.count) \(removed.count == 1 ? "frame" : "frames")")
     }
 
     private var info: some View {
@@ -294,7 +365,8 @@ struct TimelineWindow: View {
                 Text(frame.app).bold()
                 if !frame.title.isEmpty { Text("— \(frame.title)").lineLimit(1).foregroundStyle(.secondary) }
                 Spacer()
-                if let copiedMessage { Text(copiedMessage).foregroundStyle(.green) }
+                if let statusMessage { Text(statusMessage).foregroundStyle(.green) }
+                deleteMenu
                 if !boxes.isEmpty {
                     Button("Copy Text", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
                         .help("Copy the selected words, or all text if nothing is selected (⌘C)")
@@ -565,6 +637,12 @@ final class ScrubBridge {
             self?.onScroll?(clip.bounds.origin.x)
         }
     }
+}
+
+private struct DeleteRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let frames: [Frame]
 }
 
 private struct SearchKey: Hashable {

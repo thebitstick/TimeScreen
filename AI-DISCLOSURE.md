@@ -35,6 +35,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   could delete every frame instead of stopping at the target.
 - The first-run welcome window, on a throwaway copy with its own bundle identifier and data folder: it opens by
   itself on an empty history, shows the permission as not yet granted and no system prompt appears.
+- Deleting history, on a copy of the author's real data in an isolated app instance: deleting the last hour removed
+  every frame in that range together with its search entries, word positions and image files, and left the rest.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.3) from signed releases.
 
 ## What was not tested
@@ -42,6 +44,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - The storage size limit on the author's own history, which has never come near the smallest limit (5 GB).
 - Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display
   capture are covered by unit tests alone.
+- The delete menus and their confirmation dialogs, and the changing menu bar icon, on screen: the code paths and the
+  deletion itself were checked, but the menus were not clicked through.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.

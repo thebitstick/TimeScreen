@@ -53,6 +53,27 @@ final class Recorder: ObservableObject {
         startLoop()
     }
 
+    var menuBarSymbol: String {
+        MenuBarState.symbol(hasPermission: hasPermission, isRecording: isRecording, isSkipping: skipReason != nil, hasError: lastError != nil)
+    }
+
+    var menuBarDescription: String {
+        MenuBarState.description(hasPermission: hasPermission, isRecording: isRecording, isSkipping: skipReason != nil, hasError: lastError != nil)
+    }
+
+    func frames(lastMinutes minutes: Int) async -> [Frame] {
+        let now = Date()
+        return (try? await db.frames(from: now.addingTimeInterval(-Double(minutes) * 60), to: now.addingTimeInterval(60))) ?? []
+    }
+
+    func delete(_ frames: [Frame]) async {
+        guard !frames.isEmpty else { return }
+        try? await db.delete(ids: frames.map(\.id))
+        await Storage.removeFiles(frames.map(\.path), under: framesRoot)
+        revision += 1
+        await refreshToday()
+    }
+
     func setTimelineOpen(_ open: Bool) {
         if open { suspensions.insert("timeline") } else { suspensions.remove("timeline") }
     }

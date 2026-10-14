@@ -57,6 +57,21 @@ final class DatabaseTests: XCTestCase {
         XCTAssertEqual(apps.first?.count, 2)
     }
 
+    func testFramesCanBeListedByTimeRange() async throws {
+        let db = try makeDatabase()
+        let now = Date()
+        for minutes in [30, 12, 8, 3, 1] {
+            try await db.insert(date: now.addingTimeInterval(-Double(minutes) * 60), app: "A", title: "", path: "\(minutes).jpg", text: "words")
+        }
+        let recent = try await db.frames(from: now.addingTimeInterval(-10 * 60), to: now.addingTimeInterval(60))
+        XCTAssertEqual(recent.map(\.path), ["8.jpg", "3.jpg", "1.jpg"])
+        try await db.delete(ids: recent.map(\.id))
+        let left = try await db.frames(on: now)
+        XCTAssertEqual(left.map(\.path), ["30.jpg", "12.jpg"])
+        let hits = try await db.search("words")
+        XCTAssertEqual(hits.count, 2)
+    }
+
     func testMatchExpression() {
         XCTAssertNil(Database.matchExpression("   "))
         XCTAssertEqual(Database.matchExpression("hello wor\"ld"), "\"hello\"* \"world\"*")
@@ -431,5 +446,26 @@ final class UnlockWindowTests: XCTestCase {
         window.markUnlocked(at: start)
         window.invalidate()
         XCTAssertFalse(window.isOpen(grace: 900, now: start))
+    }
+}
+
+final class MenuBarStateTests: XCTestCase {
+    func testSymbolFollowsTheMostImportantState() {
+        func symbol(_ permission: Bool, _ recording: Bool, _ skipping: Bool, _ error: Bool) -> String {
+            MenuBarState.symbol(hasPermission: permission, isRecording: recording, isSkipping: skipping, hasError: error)
+        }
+        XCTAssertEqual(symbol(true, true, false, false), "record.circle")
+        XCTAssertEqual(symbol(true, false, false, false), "pause.circle")
+        XCTAssertEqual(symbol(true, true, true, false), "eye.slash.circle")
+        XCTAssertEqual(symbol(true, true, false, true), "exclamationmark.circle")
+        XCTAssertEqual(symbol(false, true, false, false), "exclamationmark.triangle")
+        XCTAssertEqual(symbol(false, false, true, true), "exclamationmark.triangle")
+        XCTAssertEqual(symbol(true, false, true, true), "pause.circle")
+    }
+
+    func testEveryStateHasADistinctDescription() {
+        let states = [(true, true, false, false), (true, false, false, false), (true, true, true, false), (true, true, false, true), (false, true, false, false)]
+        let descriptions = states.map { MenuBarState.description(hasPermission: $0.0, isRecording: $0.1, isSkipping: $0.2, hasError: $0.3) }
+        XCTAssertEqual(Set(descriptions).count, states.count)
     }
 }

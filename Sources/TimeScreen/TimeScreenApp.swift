@@ -34,7 +34,9 @@ struct TimeScreenApp: App {
         MenuBarExtra {
             MenuContent(recorder: recorder)
         } label: {
-            Image(systemName: recorder.isRecording ? "record.circle" : "pause.circle")
+            Image(systemName: recorder.menuBarSymbol)
+                .accessibilityLabel(recorder.menuBarDescription)
+                .help(recorder.menuBarDescription)
                 .background(SettingsOpenerHook())
         }
 
@@ -73,6 +75,11 @@ struct MenuContent: View {
             }
         }
         Divider()
+        Menu("Delete Recent") {
+            Button("Last 5 Minutes…") { confirmDeleteRecent(minutes: 5) }
+            Button("Last 15 Minutes…") { confirmDeleteRecent(minutes: 15) }
+            Button("Last Hour…") { confirmDeleteRecent(minutes: 60) }
+        }
         if let version = updater.availableVersion {
             Button("Update Available: \(version)…") { updater.checkForUpdates() }
         } else {
@@ -86,6 +93,29 @@ struct MenuContent: View {
             })
         Button("Quit TimeScreen") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
+    }
+
+    private func confirmDeleteRecent(minutes: Int) {
+        Task { @MainActor in
+            let frames = await recorder.frames(lastMinutes: minutes)
+            let span = minutes == 60 ? "hour" : "\(minutes) minutes"
+            DockPresence.windowWillOpen()
+            let alert = NSAlert()
+            if frames.isEmpty {
+                alert.messageText = "Nothing to delete"
+                alert.informativeText = "No screenshots were captured in the last \(span)."
+                alert.addButton(withTitle: "OK")
+            } else {
+                alert.messageText = "Delete the last \(span)?"
+                alert.informativeText = "\(frames.count) \(frames.count == 1 ? "screenshot" : "screenshots") and their search text will be removed. This can't be undone."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Delete").hasDestructiveAction = true
+                alert.addButton(withTitle: "Cancel")
+            }
+            let response = alert.runModal()
+            if !frames.isEmpty, response == .alertFirstButtonReturn { await recorder.delete(frames) }
+            DockPresence.windowDidFinish()
+        }
     }
 
     private var status: String {

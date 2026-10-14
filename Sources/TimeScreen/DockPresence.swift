@@ -38,6 +38,11 @@ enum DockPresence {
         window?.orderFrontRegardless()
     }
 
+    static func windowDidFinish() {
+        let hasWindow = NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
+        if !hasWindow { NSApp.setActivationPolicy(.accessory) }
+    }
+
     private static func observeClosings() {
         guard !observing else { return }
         observing = true

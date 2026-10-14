@@ -20,6 +20,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineController.swift` | full-screen overlay window, scroll and Esc monitors, Carbon global hotkey, shortcut recorder |
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `JumpTime.swift` | parses the timeline's jump-to-time box (ambiguous hours return both am and pm) |
+| `MenuBarState.swift` | which SF Symbol and description the menu bar icon shows |
 | `Authenticator.swift` | the optional Touch ID / password lock on the timeline and its grace period |
 | `SettingsView.swift`, `Prefs.swift` | tabbed settings and the `UserDefaults` keys |
 | `Tests/TimeScreenTests` | unit tests (database, signature, word boxes, compaction) |
@@ -74,6 +75,9 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   so it switches to the regular (Dock) activation policy while a titled window is open and back afterwards. Settings opens
   through SwiftUI's `openSettings` (captured by a hook in the menu bar icon); `sendAction(showSettingsWindow:)` reports
   success but opens nothing. `--settings` opens Settings at launch, for checking window order with `open -g`.
+- **Deleting history** goes through `Recorder.delete(_:)` (index rows, boxes and search text first, then the files via
+  `Storage.removeFiles`), from the timeline's trash menu and the menu bar's Delete Recent. Both confirm first.
+- **The menu bar icon** comes from `MenuBarState` (permission, then paused, then private-window skip, then error).
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against
