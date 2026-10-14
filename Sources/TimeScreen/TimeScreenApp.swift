@@ -5,13 +5,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let recorder = Recorder.shared
         recorder.start()
         if let notice = recorder.startupNotice {
-            DockPresence.windowWillOpen()
-            let alert = NSAlert()
-            alert.messageText = "TimeScreen had a problem with its data"
-            alert.informativeText = notice
-            alert.alertStyle = .warning
-            alert.runModal()
-            DockPresence.windowDidFinish()
+            Task { @MainActor in
+                DockPresence.windowWillOpen()
+                let alert = NSAlert()
+                alert.messageText = "TimeScreen had a problem with its data"
+                alert.informativeText = notice
+                alert.alertStyle = .warning
+                alert.runModal()
+                DockPresence.windowDidFinish()
+            }
         }
         HotKey.timeline.onPress = { TimelineController.shared.toggle() }
         HotKey.pause.onPress = {
@@ -141,7 +143,9 @@ struct MenuContent: View {
                 alert.addButton(withTitle: "OK")
             } else {
                 alert.messageText = "Delete the last \(span)?"
+                let starred = frames.filter(\.starred).count
                 alert.informativeText = "\(frames.count) \(frames.count == 1 ? "screenshot" : "screenshots") and their search text will be removed. This can't be undone."
+                    + (starred > 0 ? " \(starred) of them \(starred == 1 ? "is" : "are") starred, and starred screenshots go too." : "")
                 alert.alertStyle = .warning
                 alert.addButton(withTitle: "Delete").hasDestructiveAction = true
                 alert.addButton(withTitle: "Cancel")

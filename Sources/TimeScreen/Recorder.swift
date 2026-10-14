@@ -19,12 +19,12 @@ final class Recorder: ObservableObject {
     @Published private(set) var skipReason: SkipReason?
 
     private var loop: Task<Void, Never>?
+    private var maintenance: Task<Void, Never>?
     private var resumeTimer: Task<Void, Never>?
     private var lastSignatures: [Int: [UInt8]] = [:]
     private var suspensions = Set<String>()
     private var lastPrune = Date.distantPast
     private var lastCapCheck = Date.distantPast
-    private var lastCompact = Date.distantPast
 
     let startupNotice: String?
 
@@ -41,6 +41,7 @@ final class Recorder: ObservableObject {
     func start() {
         observeSystemState()
         startLoop()
+        startMaintenance()
         Task {
             await refreshToday()
             await backfillBundles()
@@ -138,6 +139,19 @@ final class Recorder: ObservableObject {
         }
     }
 
+    /// Retention, the size limit and compaction run on their own clock, so they keep working while recording is paused or being skipped.
+    private func startMaintenance() {
+        guard maintenance == nil else { return }
+        maintenance = Task {
+            while !Task.isCancelled {
+                if Date().timeIntervalSince(lastPrune) > 3600 { await prune() }
+                if Date().timeIntervalSince(lastCapCheck) > 600 { await enforceStorageCap() }
+                await compactOldFrames()
+                try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
+            }
+        }
+    }
+
     private func waitForNextTick() async {
         let defaults = UserDefaults.standard
         let base = max(1, defaults.double(forKey: Prefs.interval))
@@ -154,8 +168,6 @@ final class Recorder: ObservableObject {
     private func tick() async {
         skipReason = nil
         hasPermission = CGPreflightScreenCaptureAccess()
-        if Date().timeIntervalSince(lastPrune) > 3600 { await prune() }
-        if Date().timeIntervalSince(lastCapCheck) > 600 { await enforceStorageCap() }
         guard hasPermission, suspensions.isEmpty else { return }
 
         let defaults = UserDefaults.standard
@@ -200,7 +212,6 @@ final class Recorder: ObservableObject {
                 guard suspensions.isEmpty else { return }
                 let signature = await Task.detached { Signature.make(image) }.value
                 if let last = lastSignatures[target.index], Signature.isDuplicate(last, signature) { continue }
-                lastSignatures[target.index] = signature
 
                 try await Task.detached(priority: .utility) {
                     let (data, ext) = try Capturer.encode(image)
@@ -212,6 +223,7 @@ final class Recorder: ObservableObject {
                     try await db.insert(date: now, app: app, title: title, path: relative, text: ocr.text,
                                         boxes: WordBox.pack(ocr.words), display: target.index, bundle: bundleID)
                 }.value
+                lastSignatures[target.index] = signature
             }
 
             lastCapture = now
@@ -221,11 +233,9 @@ final class Recorder: ObservableObject {
         } catch {
             lastError = error.localizedDescription
         }
-        if Date().timeIntervalSince(lastCompact) > 60 { await compactOldFrames() }
     }
 
     private func compactOldFrames() async {
-        lastCompact = Date()
         guard UserDefaults.standard.bool(forKey: Prefs.compactOld),
               let cutoff = Calendar.current.date(byAdding: .hour, value: -24, to: Date()),
               let frames = try? await db.framesToCompact(before: cutoff, limit: 40), !frames.isEmpty else { return }

@@ -137,25 +137,42 @@ actor Database {
     deinit { sqlite3_close(handle) }
 
 
+    /// Runs `body` as one transaction, so a crash or an error never leaves a frame half indexed, and a batch costs one commit.
+    private func transaction<T>(_ body: () throws -> T) throws -> T {
+        try run("BEGIN IMMEDIATE", [])
+        do {
+            let result = try body()
+            try run("COMMIT", [])
+            return result
+        } catch {
+            _ = try? run("ROLLBACK", [])
+            throw error
+        }
+    }
+
     @discardableResult
     func insert(date: Date, app: String, title: String, path: String, text: String, boxes: Data? = nil, display: Int = 0, bundle: String = "") throws -> Int64 {
-        try run("INSERT INTO frames(ts, app, title, path, display, bundle) VALUES(?,?,?,?,?,?)",
-                [.double(date.timeIntervalSince1970), .text(app), .text(title), .text(path), .int(Int64(display)), .text(bundle)])
-        let id = sqlite3_last_insert_rowid(handle)
-        try run("INSERT INTO frames_fts(rowid, text, app, title) VALUES(?,?,?,?)",
-                [.int(id), .text(text), .text(app), .text(title)])
-        if let boxes { try run("INSERT INTO boxes(frame_id, data) VALUES(?,?)", [.int(id), .blob(boxes)]) }
-        return id
+        try transaction {
+            try run("INSERT INTO frames(ts, app, title, path, display, bundle) VALUES(?,?,?,?,?,?)",
+                    [.double(date.timeIntervalSince1970), .text(app), .text(title), .text(path), .int(Int64(display)), .text(bundle)])
+            let id = sqlite3_last_insert_rowid(handle)
+            try run("INSERT INTO frames_fts(rowid, text, app, title) VALUES(?,?,?,?)",
+                    [.int(id), .text(text), .text(app), .text(title)])
+            if let boxes { try run("INSERT INTO boxes(frame_id, data) VALUES(?,?)", [.int(id), .blob(boxes)]) }
+            return id
+        }
     }
 
     func prune(before date: Date) throws -> [String] {
         let cutoff = Value.double(date.timeIntervalSince1970)
-        let paths = try rows("SELECT path FROM frames WHERE ts < ? AND starred = 0", [cutoff]) { Self.text($0, 0) }
-        try run("DELETE FROM frames_fts WHERE rowid IN (SELECT id FROM frames WHERE ts < ? AND starred = 0)", [cutoff])
-        try run("DELETE FROM boxes WHERE frame_id IN (SELECT id FROM frames WHERE ts < ? AND starred = 0)", [cutoff])
-        try run("DELETE FROM frames WHERE ts < ? AND starred = 0", [cutoff])
-        try run("DELETE FROM summaries WHERE start < ?", [cutoff])
-        return paths
+        return try transaction {
+            let paths = try rows("SELECT path FROM frames WHERE ts < ? AND starred = 0", [cutoff]) { Self.text($0, 0) }
+            try run("DELETE FROM frames_fts WHERE rowid IN (SELECT id FROM frames WHERE ts < ? AND starred = 0)", [cutoff])
+            try run("DELETE FROM boxes WHERE frame_id IN (SELECT id FROM frames WHERE ts < ? AND starred = 0)", [cutoff])
+            try run("DELETE FROM frames WHERE ts < ? AND starred = 0", [cutoff])
+            try run("DELETE FROM summaries WHERE start < ?", [cutoff])
+            return paths
+        }
     }
 
     func oldestFrames(limit: Int) throws -> [Frame] {
@@ -163,22 +180,27 @@ actor Database {
     }
 
     func delete(ids: [Int64]) throws {
-        if let span = try rows("SELECT MIN(ts), MAX(ts) FROM frames WHERE id IN (\(ids.map(String.init).joined(separator: ",")))", [], map: { (sqlite3_column_double($0, 0), sqlite3_column_double($0, 1)) }).first,
-           !ids.isEmpty {
-            try run("DELETE FROM summaries WHERE end >= ? AND start <= ?", [.double(span.0), .double(span.1)])
-        }
-        for id in ids {
-            try run("DELETE FROM frames_fts WHERE rowid = ?", [.int(id)])
-            try run("DELETE FROM boxes WHERE frame_id = ?", [.int(id)])
-            try run("DELETE FROM frames WHERE id = ?", [.int(id)])
+        guard !ids.isEmpty else { return }
+        try transaction {
+            let list = ids.map(String.init).joined(separator: ",")
+            if let span = try rows("SELECT MIN(ts), MAX(ts) FROM frames WHERE id IN (\(list))", [], map: { (sqlite3_column_double($0, 0), sqlite3_column_double($0, 1)) }).first {
+                try run("DELETE FROM summaries WHERE end >= ? AND start <= ?", [.double(span.0), .double(span.1)])
+            }
+            for id in ids {
+                try run("DELETE FROM frames_fts WHERE rowid = ?", [.int(id)])
+                try run("DELETE FROM boxes WHERE frame_id = ?", [.int(id)])
+                try run("DELETE FROM frames WHERE id = ?", [.int(id)])
+            }
         }
     }
 
     func deleteAll() throws {
-        try run("DELETE FROM frames_fts", [])
-        try run("DELETE FROM boxes", [])
-        try run("DELETE FROM frames", [])
-        try run("DELETE FROM summaries", [])
+        try transaction {
+            try run("DELETE FROM frames_fts", [])
+            try run("DELETE FROM boxes", [])
+            try run("DELETE FROM frames", [])
+            try run("DELETE FROM summaries", [])
+        }
     }
 
     func framesToCompact(before date: Date, limit: Int) throws -> [Frame] {

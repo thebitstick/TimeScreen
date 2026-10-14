@@ -1,3 +1,4 @@
+import SQLite3
 import UniformTypeIdentifiers
 import XCTest
 @testable import TimeScreen
@@ -1307,6 +1308,49 @@ final class SummaryServiceTests: XCTestCase {
         XCTAssertEqual(hours.count, 2)
     }
 
+    func testABlockWithNoTextIsMarkedInsteadOfFailingTheHourAndTheDay() async throws {
+        let (db, service, generator) = try make()
+        try await addFrame(db, at(9, 2), text: "real words in the first block")
+        try await addFrame(db, at(9, 20), text: "   ")
+        try await addFrame(db, at(9, 21), text: "")
+
+        let empty = try await service.summarize(.block(containing: at(9, 20)))
+        XCTAssertEqual(empty?.text, "")
+        XCTAssertEqual(empty?.inputs, 2)
+        XCTAssertEqual(generator.callCount, 0)
+        let stillPending = try await service.pendingCount(.block(containing: at(9, 20)))
+        XCTAssertEqual(stillPending, 0)
+
+        let hour = SummaryWindow.hour(containing: at(9, 0))
+        let record = try await service.summarize(hour)
+        XCTAssertEqual(record?.text, "Summary 2.")
+        XCTAssertEqual(record?.inputs, 2)
+        XCTAssertEqual(generator.callCount, 2)
+        XCTAssertTrue(generator.prompts[1].contains("Summary 1."))
+        XCTAssertFalse(generator.prompts[1].contains("09:15–09:30"))
+        let pending = try await service.pendingCount(hour)
+        XCTAssertEqual(pending, 0)
+        _ = try await service.summarize(hour)
+        XCTAssertEqual(generator.callCount, 2)
+
+        let day = try await service.summarize(.day(containing: at(12, 0)))
+        XCTAssertEqual(day?.inputs, 1)
+        let dayPending = try await service.pendingCount(.day(containing: at(12, 0)))
+        XCTAssertEqual(dayPending, 0)
+    }
+
+    func testADayOfOnlyTextlessFramesCostsNothing() async throws {
+        let (db, service, generator) = try make()
+        try await addFrame(db, at(9, 2), text: " ")
+        try await addFrame(db, at(14, 2), text: "")
+        let day = SummaryWindow.day(containing: at(12, 0))
+        let record = try await service.summarize(day)
+        XCTAssertEqual(record?.text, "")
+        XCTAssertEqual(generator.callCount, 0)
+        let pending = try await service.pendingCount(day)
+        XCTAssertEqual(pending, 0)
+    }
+
     func testAnAppSummaryUsesOnlyThatAppsText() async throws {
         let (db, service, generator) = try make()
         try await addFrame(db, at(9, 2), app: "Mail", text: "inbox subject lines")
@@ -1412,5 +1456,99 @@ final class LiveSummaryTests: XCTestCase {
         XCTAssertEqual(hour?.inputs, 2)
         let again = try await service.pendingCount(.hour(containing: at(9, 0)))
         XCTAssertEqual(again, 0)
+    }
+}
+
+final class LegacySchemaTests: XCTestCase {
+    private func makeLegacyIndex(at path: String, ts: Double) {
+        var handle: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(path, &handle), SQLITE_OK)
+        defer { sqlite3_close(handle) }
+        for sql in [
+            "CREATE TABLE frames(id INTEGER PRIMARY KEY, ts REAL NOT NULL, app TEXT NOT NULL, title TEXT NOT NULL, path TEXT NOT NULL)",
+            "CREATE INDEX frames_ts ON frames(ts)",
+            "CREATE TABLE boxes(frame_id INTEGER PRIMARY KEY, data BLOB NOT NULL)",
+            "CREATE VIRTUAL TABLE frames_fts USING fts5(text, app, title, tokenize='unicode61 remove_diacritics 2')",
+            "INSERT INTO frames(ts, app, title, path) VALUES(\(ts), 'Safari', 'Old page', '2026-01-01/000000.jpg')",
+            "INSERT INTO frames_fts(rowid, text, app, title) VALUES(1, 'an old screenshot about walruses', 'Safari', 'Old page')",
+        ] { XCTAssertEqual(sqlite3_exec(handle, sql, nil, nil, nil), SQLITE_OK, sql) }
+    }
+
+    func testAnIndexFromTheFirstVersionIsMigratedAndStaysUsable() async throws {
+        let path = NSTemporaryDirectory() + "timescreen-legacy-\(UUID().uuidString).sqlite"
+        addTeardownBlock { try? FileManager.default.removeItem(atPath: path) }
+        let old = Date().addingTimeInterval(-3 * 86_400)
+        makeLegacyIndex(at: path, ts: old.timeIntervalSince1970)
+
+        let db = try Database(path: path)
+        let frames = try await db.frames(on: old)
+        XCTAssertEqual(frames.map(\.app), ["Safari"])
+        XCTAssertEqual(frames.first?.display, 0)
+        XCTAssertEqual(frames.first?.bundle, "")
+        XCTAssertEqual(frames.first?.starred, false)
+
+        _ = try await db.insert(date: Date(), app: "Notes", title: "", path: "new.jpg", text: "a new note about walruses", display: 1, bundle: "com.apple.Notes")
+        let hits = try await db.search("walruses")
+        XCTAssertEqual(hits.count, 2)
+        let missing = try await db.appsMissingBundle()
+        XCTAssertEqual(missing, ["Safari"])
+        try await db.setStarred(true, id: frames[0].id)
+        let starred = try await db.starredFrames()
+        XCTAssertEqual(starred.map(\.app), ["Safari"])
+        let compactable = try await db.framesToCompact(before: Date(), limit: 10)
+        XCTAssertFalse(compactable.contains { $0.app == "Safari" })
+        XCTAssertTrue(compactable.contains { $0.app == "Notes" })
+        let again = try Database(path: path)
+        let count = try await again.summaryCount()
+        XCTAssertEqual(count, 0)
+    }
+}
+
+final class TransactionTests: XCTestCase {
+    func testDeletingManyFramesIsOneQuickAtomicBatch() async throws {
+        let db = try Database(path: NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite")
+        let base = Date().addingTimeInterval(-3600)
+        var ids: [Int64] = []
+        for n in 0..<1500 {
+            ids.append(try await db.insert(date: base.addingTimeInterval(Double(n)), app: "A", title: "", path: "\(n).jpg", text: "word\(n)",
+                                           boxes: WordBox.pack([WordBox(t: "x", x: 0, y: 0, w: 1, h: 1)])))
+        }
+        let start = Date()
+        try await db.delete(ids: ids)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5)
+        let left = try await db.frames(on: base)
+        XCTAssertTrue(left.isEmpty)
+        let hits = try await db.search("word7")
+        XCTAssertTrue(hits.isEmpty)
+        let boxes = try await db.boxes(for: ids[0])
+        XCTAssertNil(boxes)
+        try await db.delete(ids: [])
+    }
+
+    func testInsertLeavesTheFrameFullyIndexed() async throws {
+        let db = try Database(path: NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite")
+        let id = try await db.insert(date: Date(), app: "A", title: "T", path: "p.jpg", text: "needle in a haystack",
+                                     boxes: WordBox.pack([WordBox(t: "needle", x: 0, y: 0, w: 1, h: 1)]))
+        let hits = try await db.search("needle")
+        XCTAssertEqual(hits.map(\.frame.id), [id])
+        let boxes = try await db.boxes(for: id)
+        XCTAssertNotNil(boxes)
+        let text = try await db.texts(for: [id])
+        XCTAssertEqual(text[id], "needle in a haystack")
+    }
+}
+
+final class LargeIndexRecoveryTests: XCTestCase {
+    func testABigIndexIsOpenedWithoutAFullScan() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-big-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        let path = dir.appendingPathComponent("index.sqlite").path
+        _ = try Database(path: path)
+        XCTAssertTrue(DatabaseRecovery.isHealthy(path: path))
+        XCTAssertTrue(DatabaseRecovery.isHealthy(path: path, fullCheckLimit: 1))
+        try Data("not a database".utf8).write(to: URL(fileURLWithPath: dir.appendingPathComponent("junk.sqlite").path))
+        XCTAssertFalse(DatabaseRecovery.isHealthy(path: dir.appendingPathComponent("junk.sqlite").path))
+        XCTAssertFalse(DatabaseRecovery.isHealthy(path: dir.appendingPathComponent("junk.sqlite").path, fullCheckLimit: 1))
     }
 }

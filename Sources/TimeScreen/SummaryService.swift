@@ -24,6 +24,9 @@ enum SummaryError: LocalizedError, Equatable {
     }
 }
 
+/// A record with empty text means "looked, and there was no recognized text": it keeps a stretch of, say, a full-screen game from being
+/// retried forever or from failing the hour and day built on top of it.
+///
 /// Builds and caches summaries from stored screen text: frames and app-days directly, 15-minute blocks from a sample of their
 /// frames, and hours and days by combining the summaries below them. The model sees only text, one request at a time.
 actor SummaryService {
@@ -118,7 +121,9 @@ actor SummaryService {
         let ordered = picked.compactMap { texts[$0.id] }
         let apps = Dictionary(grouping: frames, by: \.app).map { (app: $0.key, frames: $0.value.count) }
         let label = SummaryPrompt.timeLabel(window.start, window.end)
-        guard !SummaryInput.condense(ordered, maxCharacters: 100_000).isEmpty else { throw SummaryError.noText }
+        guard !SummaryInput.condense(ordered, maxCharacters: 100_000).isEmpty else {
+            return try await store(window, text: "", inputs: frames.count, run: run)
+        }
         let result = try await generate(instructions: SummaryPrompt.instructions) { characters in
             SummaryPrompt.stretch(label: label, apps: apps, text: SummaryInput.condense(ordered, maxCharacters: characters))
         }
@@ -150,18 +155,18 @@ actor SummaryService {
         }
         var notes: [(label: String, text: String)] = []
         for child in children {
-            if let record = try await summarize(child, regenerate: false, run: run) {
+            if let record = try await summarize(child, regenerate: false, run: run), !record.text.isEmpty {
                 notes.append((SummaryPrompt.timeLabel(child.start, child.end), record.text))
             }
         }
-        guard !notes.isEmpty else { return nil }
+        guard !notes.isEmpty else { return try await store(window, text: "", inputs: children.count, run: run) }
         let title = window.kind == .hour
             ? "The hour starting \(window.start.formatted(date: .abbreviated, time: .shortened))"
             : window.start.formatted(date: .complete, time: .omitted)
         let result = try await generate(instructions: SummaryPrompt.rollupInstructions, outputTokens: Self.rollupOutputTokens) { _ in
             SummaryPrompt.rollup(title: title, notes: notes, maxSentences: window.kind == .hour ? 3 : 5)
         }
-        return try await store(window, text: result, inputs: notes.count, run: run)
+        return try await store(window, text: result, inputs: children.count, run: run)
     }
 
     // MARK: Helpers

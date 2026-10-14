@@ -11,6 +11,9 @@ struct OpenedStore {
 enum DatabaseRecovery {
     /// Opens the index in `support`. A damaged index is moved aside and replaced by a fresh one (the screenshots stay on disk),
     /// and if even that fails the app runs from a temporary folder rather than refusing to start.
+    /// A full integrity scan reads the whole file, which would stall launch on a large index; bigger ones are only opened and queried.
+    static let fullCheckLimit: Int64 = 256 * 1024 * 1024
+
     static func open(support: URL, now: Date = Date()) -> OpenedStore {
         let fm = FileManager.default
         let frames = support.appendingPathComponent("frames", isDirectory: true)
@@ -18,7 +21,7 @@ enum DatabaseRecovery {
         var notice: String?
 
         if (try? fm.createDirectory(at: frames, withIntermediateDirectories: true)) != nil {
-            if fm.fileExists(atPath: index.path), !isHealthy(path: index.path) {
+            if fm.fileExists(atPath: index.path), !isHealthy(path: index.path, fullCheckLimit: fullCheckLimit) {
                 let saved = quarantine(index, now: now)
                 notice = "TimeScreen's search index was damaged. The old index was saved as \(saved.lastPathComponent) and a new one was started. " +
                     "Your screenshots are untouched, but older ones won't appear in search."
@@ -44,12 +47,14 @@ enum DatabaseRecovery {
                                "Check that \(support.path) is writable.")
     }
 
-    static func isHealthy(path: String) -> Bool {
+    static func isHealthy(path: String, fullCheckLimit: Int64 = DatabaseRecovery.fullCheckLimit) -> Bool {
         var handle: OpaquePointer?
         guard sqlite3_open_v2(path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { sqlite3_close(handle); return false }
         defer { sqlite3_close(handle) }
+        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0
+        let check = size > fullCheckLimit ? "SELECT 'ok' FROM sqlite_master LIMIT 1" : "PRAGMA quick_check"
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(handle, "PRAGMA quick_check", -1, &statement, nil) == SQLITE_OK else { return false }
+        guard sqlite3_prepare_v2(handle, check, -1, &statement, nil) == SQLITE_OK else { return false }
         defer { sqlite3_finalize(statement) }
         guard sqlite3_step(statement) == SQLITE_ROW, let text = sqlite3_column_text(statement, 0) else { return false }
         return String(cString: text) == "ok"

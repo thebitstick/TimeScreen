@@ -71,7 +71,8 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   Scrolling anywhere works through a local scroll-wheel monitor that moves the filmstrip's clip view; the
   selected frame is derived from the scroll offset. `scrollPosition(id:)` does not track programmatic scrolls,
   so do not use it.
-- **Esc is handled by a window-level key monitor,** because the search field swallows it otherwise.
+- **Esc is handled by a window-level key monitor,** because the search field swallows it otherwise. It only closes the timeline for a key
+  press in the overlay itself with no sheet attached, so Esc cancels a Save panel, a confirmation or a popover instead of closing everything.
 - **Frames are deduplicated** with a 64x36 grayscale signature before OCR and storage.
 - **Storage:** HEIC (JPEG fallback); frames older than a day are recompressed to 1728 px in the background.
   Word boxes are LZFSE-compressed JSON in the `boxes` table. Vision's origin is bottom-left; flip y when drawing.
@@ -142,6 +143,15 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   `FoundationModels` is weakly linked (Package.swift) and used behind `#available(macOS 26)`/`canImport`, so the app still runs on
   macOS 14; the release workflows therefore build on `macos-26`, whose SDK has the framework. `--summarize-day yyyy-MM-dd` writes a
   day's summaries at launch and `-showRecap YES` opens the recap, for demos.
+- **Database writes are transactions** (`Database.transaction`): an insert (frame, search row, boxes), a delete of many frames, prune and delete-all are
+  each one commit, so a crash cannot leave a half-indexed frame and deleting a day is fast. `DatabaseRecovery` only runs the full
+  `quick_check` for indexes under 256 MB, because a full scan on the main thread would stall launch on a big one.
+- **Retention, the size limit and compaction run on their own 60-second clock** (`Recorder.startMaintenance`), not inside the capture loop, so they
+  keep working while recording is paused or skipped (battery, private window, no permission).
+- **A summary record with empty text means "looked, no recognized text"** (a full-screen game, say). Blocks and rollups store it instead of
+  throwing, so one textless stretch neither fails the hour and day above it nor stays pending forever; rollups skip it. Their `inputs` is the
+  number of non-empty stretches below, which is what freshness compares.
+- **Deleting frames warns about starred ones** (timeline dialogs and the menu bar's Delete Recent): an explicit delete removes them too.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are

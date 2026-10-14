@@ -36,8 +36,10 @@ struct SummaryCard: View {
             } else if let error = summarizer.errors[window] {
                 Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
             }
-            if let record {
+            if let record, !record.text.isEmpty {
                 Text(record.text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            } else if record != nil, !isWorking {
+                Text("No text was recognized here, so there is nothing to summarize.").font(.caption).foregroundStyle(.secondary)
             } else if !isWorking, summarizer.errors[window] == nil {
                 Text(pending > 1 ? "Not written yet (about \(pending) steps)." : "Not written yet.").font(.caption).foregroundStyle(.secondary)
             }
@@ -124,9 +126,9 @@ struct DayRecapView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 SummaryCard(title: "The day", window: window, record: dayRecord, pending: pending, summarizer: summarizer)
-                if !hours.isEmpty {
+                if hours.contains(where: { !$0.text.isEmpty }) {
                     Text("Hour by hour").font(.subheadline.bold())
-                    ForEach(hours, id: \.key) { record in
+                    ForEach(hours.filter { !$0.text.isEmpty }, id: \.key) { record in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(SummaryPrompt.timeLabel(record.start, record.end)).font(.caption).foregroundStyle(.secondary)
                             Text(record.text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)

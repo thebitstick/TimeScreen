@@ -61,8 +61,10 @@ final class TimelineController {
         // Esc closes the overlay no matter what has focus (the search field would otherwise swallow it).
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.keyCode == UInt16(kVK_Escape) else { return event }
-            MainActor.assumeIsolated { self?.hide() }
-            return nil
+            nonisolated(unsafe) let key = event
+            let closes = MainActor.assumeIsolated { self?.escapeClosesTimeline(key) ?? false }
+            if closes { MainActor.assumeIsolated { self?.hide() } }
+            return closes ? nil : event
         }
         resignObserver = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.hide() }
@@ -70,6 +72,12 @@ final class TimelineController {
 
         NSApp.activate(ignoringOtherApps: true)
         overlay.makeKeyAndOrderFront(nil)
+    }
+
+    /// Esc belongs to a sheet (a Save panel, a confirmation) or a popover when one is open: only a key press in the overlay itself closes it.
+    private func escapeClosesTimeline(_ event: NSEvent) -> Bool {
+        guard let window else { return false }
+        return event.window === window && window.attachedSheet == nil
     }
 
     func hide() {

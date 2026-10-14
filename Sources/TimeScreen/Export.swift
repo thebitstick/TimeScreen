@@ -155,7 +155,7 @@ enum Exporter {
         let base = "TimeScreen \(stamp(frame.date))"
         let accessory = FormatAccessory { format in
             panel.allowedContentTypes = [format.type]
-            panel.nameFieldStringValue = base + "." + format.fileExtension
+            panel.nameFieldStringValue = (panel.nameFieldStringValue as NSString).deletingPathExtension + "." + format.fileExtension
         }
         panel.accessoryView = accessory.view
         panel.allowedContentTypes = [accessory.format.type]

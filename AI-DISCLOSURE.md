@@ -58,6 +58,9 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   itself where the model is unavailable. The AI also had the real model write a whole fictional day (34 blocks, 9 hours and the
   day) through the app's own code path. Timings on a copy of the author's real history: about 2.7 s per 15-minute block after
   the input was capped (6.4-7.5 s before), 1.8 s for an hour rollup.
+- A review of everything since the last release (reading every changed file, a clean debug build, a strict-concurrency build, and tests for
+  each defect found): it found and fixed a failing hour and day recap when one stretch had no text, retention and compaction stalling while
+  recording is paused, non-atomic writes, and Esc closing the whole timeline from inside a dialog.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested
@@ -71,6 +74,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Background summaries (on by default) on real use over time, and the model on a Mac other than the author's. Summary quality is plausible but not guaranteed: it can
   mention things that are not on screen. The Summary tab, the day recap and the Summaries settings were seen on fictional data (the
   recap's list was found cut off and fixed), but the author has not yet used them on their own history.
+- Esc leaving a Save panel or confirmation dialog alone instead of closing the timeline: the logic is simple and was reviewed, but no key
+  press could be sent safely in testing, so it has not been seen working.
 - Clicking through the export menu items and saving real files from them.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their

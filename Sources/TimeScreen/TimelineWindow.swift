@@ -44,6 +44,7 @@ struct TimelineWindow: View {
     @State private var panStart: CGSize?
     @State private var pinchStart: CGFloat?
     @State private var fullText = ""
+    @State private var boxesID: Int64?
     @AppStorage("showTextPanel") private var showText = false
     @FocusState private var searchFocused: Bool
     @FocusState private var focused: Bool
@@ -161,7 +162,9 @@ struct TimelineWindow: View {
                 Task { await performDelete(request) }
             }
         } message: { request in
-            Text("The screenshots and their search text are removed. This can't be undone.")
+            let starred = request.frames.filter(\.starred).count
+            Text("The screenshots and their search text are removed. This can't be undone."
+                 + (starred > 0 ? " \(starred) of them \(starred == 1 ? "is" : "are") starred, and starred screenshots go too." : ""))
         }
         .confirmationDialog("Never record \(excludeRequest?.app ?? "")?",
                             isPresented: Binding(get: { excludeRequest != nil }, set: { if !$0 { excludeRequest = nil } }),
@@ -466,6 +469,7 @@ struct TimelineWindow: View {
     private var panning: Bool { zoom.isZoomed && !NSEvent.modifierFlags.contains(.shift) }
 
     private func copyText() {
+        guard boxesID == selectedID else { return }
         let words = selectedWords
         let text = selection == nil ? frameText : WordBox.text(of: words)
         guard !text.isEmpty else { return }
@@ -674,9 +678,10 @@ struct TimelineWindow: View {
         }
         .onAppear {
             bridge.onScroll = { x in
-                guard !frames.isEmpty else { return }
-                let index = min(max(Int((x / (cellWidth + cellSpacing)).rounded()), 0), frames.count - 1)
-                if frames[index].id != selectedID { selectedID = frames[index].id }
+                let visible = frames
+                guard !visible.isEmpty else { return }
+                let index = min(max(Int((x / (cellWidth + cellSpacing)).rounded()), 0), visible.count - 1)
+                if visible[index].id != selectedID { selectedID = visible[index].id }
             }
         }
     }
@@ -894,6 +899,7 @@ struct TimelineWindow: View {
         if !Task.isCancelled {
             fullText = text
             boxes = WordBox.recased(WordBox.unpack(data), from: text)
+            boxesID = id
         }
     }
 

@@ -47,12 +47,7 @@ enum DockPresence {
         guard !observing else { return }
         observing = true
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { _ in
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    let hasWindow = NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
-                    if !hasWindow { NSApp.setActivationPolicy(.accessory) }
-                }
-            }
+            DispatchQueue.main.async { MainActor.assumeIsolated { windowDidFinish() } }
         }
     }
 }
