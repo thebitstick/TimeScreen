@@ -109,6 +109,7 @@ private struct ScreenPane: View {
     @AppStorage(Prefs.ocr) private var ocr = true
     @AppStorage(Prefs.allDisplays) private var allDisplays = true
     @AppStorage(Prefs.pauseOnBattery) private var pauseOnBattery = false
+    @AppStorage(Prefs.backoffWhenAway) private var backoffWhenAway = true
     @AppStorage(Prefs.pauseInLowPower) private var pauseInLowPower = false
 
     var body: some View {
@@ -117,6 +118,13 @@ private struct ScreenPane: View {
                 ForEach([2.0, 5, 10, 30, 60], id: \.self) { Text("Every \(Int($0)) seconds").tag($0) }
             }
             .fixedSize()
+            .padding(.vertical, 5)
+            LabeledContent("When away:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Capture less often when I'm away", isOn: $backoffWhenAway)
+                    Note("After a minute without keyboard or mouse input captures slow to every 15 seconds, and to every 30 after five minutes. They return to normal the moment you're back.")
+                }
+            }
             .padding(.vertical, 5)
             LabeledContent("Displays:") {
                 VStack(alignment: .leading, spacing: 4) {

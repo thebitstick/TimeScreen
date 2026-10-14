@@ -816,6 +816,7 @@ enum Thumbnails {
     private static let cache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 600
+        cache.totalCostLimit = 64 * 1024 * 1024
         return cache
     }()
 
@@ -826,9 +827,14 @@ enum Thumbnails {
             guard let cg = downscaled(url, maxPixel: maxPixel) else { return nil }
             return NSImage(cgImage: cg, size: .zero)
         }.value
-        if let image { cache.setObject(image, forKey: key) }
+        if let image {
+            let cost = Int(image.size.width * image.size.height * 4)
+            cache.setObject(image, forKey: key, cost: cost)
+        }
         return image
     }
+
+    static func clear() { cache.removeAllObjects() }
 
     static func downscaled(_ url: URL, maxPixel: Int) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }

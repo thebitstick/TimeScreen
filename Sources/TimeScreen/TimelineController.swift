@@ -83,6 +83,7 @@ final class TimelineController {
         window = nil
         Recorder.shared.setTimelineOpen(false)
         Authenticator.shared.timelineClosed()
+        Thumbnails.clear()
     }
 
     /// The filmstrip is the widest-and-flattest scroll view in the window (the results list is tall).

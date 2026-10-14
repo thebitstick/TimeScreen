@@ -824,3 +824,23 @@ final class DatabaseRecoveryTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: store.framesRoot.path))
     }
 }
+
+final class CaptureCadenceTests: XCTestCase {
+    func testCapturesGetSparserTheLongerTheMacIsUntouched() {
+        XCTAssertEqual(CaptureCadence.interval(base: 5, idleSeconds: 0), 5)
+        XCTAssertEqual(CaptureCadence.interval(base: 5, idleSeconds: 59), 5)
+        XCTAssertEqual(CaptureCadence.interval(base: 5, idleSeconds: 60), 15)
+        XCTAssertEqual(CaptureCadence.interval(base: 5, idleSeconds: 299), 15)
+        XCTAssertEqual(CaptureCadence.interval(base: 5, idleSeconds: 300), 30)
+    }
+
+    func testASlowBaseIntervalIsNeverSpedUp() {
+        XCTAssertEqual(CaptureCadence.interval(base: 60, idleSeconds: 120), 60)
+        XCTAssertEqual(CaptureCadence.interval(base: 60, idleSeconds: 900), 60)
+        XCTAssertEqual(CaptureCadence.interval(base: 20, idleSeconds: 120), 20)
+    }
+
+    func testTheIdleReadingIsSane() {
+        XCTAssertGreaterThanOrEqual(CaptureCadence.idleSeconds, 0)
+    }
+}

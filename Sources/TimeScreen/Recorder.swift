@@ -125,9 +125,21 @@ final class Recorder: ObservableObject {
         loop = Task {
             while !Task.isCancelled {
                 await tick()
-                let seconds = max(1, UserDefaults.standard.double(forKey: Prefs.interval))
-                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                await waitForNextTick()
             }
+        }
+    }
+
+    private func waitForNextTick() async {
+        let defaults = UserDefaults.standard
+        let base = max(1, defaults.double(forKey: Prefs.interval))
+        let wait = defaults.bool(forKey: Prefs.backoffWhenAway)
+            ? CaptureCadence.interval(base: base, idleSeconds: CaptureCadence.idleSeconds) : base
+        var waited = 0.0
+        while waited < wait, !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            waited += 1
+            if wait > base, CaptureCadence.idleSeconds < 5 { break }
         }
     }
 

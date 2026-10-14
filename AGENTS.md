@@ -109,6 +109,11 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   `/var` versus `/private/var` mismatch made an early version delete indexed files).
 - **Word case:** boxes now store words in their original case; older frames have lowercase boxes, so `WordBox.recased`
   restores case from the indexed text when a frame is loaded. The Text panel and Copy Text use the indexed text.
+- **Memory:** the idle footprint is about 90 MB. The 270 MB it once showed was the filmstrip's thumbnail cache, which never shrank
+  after the timeline closed; it is now capped at 64 MB by cost and emptied when the timeline closes (`Thumbnails.clear()`).
+  Check with `footprint <pid>`; a large IOSurface line means images are being held.
+- **Cadence:** captures slow to every 15 s after a minute without input and every 30 s after five (`CaptureCadence`), and the loop
+  wakes early when you return. Settings ▸ Screen ▸ When away turns it off.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are
