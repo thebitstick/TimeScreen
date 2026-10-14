@@ -18,7 +18,7 @@ final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate, SPUStandard
     }
 
     func checkForUpdates() {
-        NSApp.activate(ignoringOtherApps: true)
+        DockPresence.windowWillOpen()
         controller.checkForUpdates(nil)
     }
 

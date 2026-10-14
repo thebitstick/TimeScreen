@@ -24,6 +24,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `SettingsView.swift`, `Prefs.swift` | tabbed settings and the `UserDefaults` keys |
 | `Tests/TimeScreenTests` | unit tests (database, signature, word boxes, compaction) |
 | `WelcomeWindow.swift` | first-run window (shown only when the database is empty; `--welcome` forces it; `--timeline` opens the timeline at launch, for screenshots) |
+| `DockPresence.swift` | brings Settings, Welcome and update windows to the front (Dock presence while they are open) |
 | `Updater.swift` | Sparkle wrapper: update menu item, gentle reminders |
 | `Scripts/build-app.sh` | builds and signs `build/TimeScreen.app` (there is no Xcode project) |
 | `Scripts/publish-appcast.sh` | signs a release zip and uploads the Sparkle appcast |
@@ -69,6 +70,10 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   period since the timeline last closed has passed. Sleep, screen lock and session switch end the grace period. It guards the
   timeline only; the screenshots on disk are plain files (FileVault is the answer there). Turning the lock on requires
   authenticating once, so a Mac with no password cannot lock itself out.
+- **Windows come to the front through `DockPresence`.** An accessory app cannot reliably activate itself on recent macOS,
+  so it switches to the regular (Dock) activation policy while a titled window is open and back afterwards. Settings opens
+  through SwiftUI's `openSettings` (captured by a hook in the menu bar icon); `sendAction(showSettingsWindow:)` reports
+  success but opens nothing. `--settings` opens Settings at launch, for checking window order with `open -g`.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store the app's display name, not its bundle identifier, so icons are found by matching names against

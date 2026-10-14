@@ -15,8 +15,7 @@ final class WelcomeController: NSObject, NSWindowDelegate {
 
     func show() {
         if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            DockPresence.bringToFront(window)
             return
         }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 100),
@@ -27,8 +26,7 @@ final class WelcomeController: NSObject, NSWindowDelegate {
         window.contentView = NSHostingView(rootView: WelcomeView(recorder: .shared) { [weak self] in self?.window?.close() })
         window.center()
         self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        DockPresence.bringToFront(window)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -71,7 +69,7 @@ private struct WelcomeView: View {
                 }
                 step(3, "Keep private things private",
                      "Password managers are never captured, and screens showing a private browsing window are skipped (not Safari's, see Settings). Pause anytime from the menu bar.") {
-                    Button("Settings…") { NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) }
+                    Button("Settings…") { DockPresence.openSettings() }
                 }
             }
 

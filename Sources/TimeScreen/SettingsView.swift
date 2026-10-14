@@ -38,15 +38,16 @@ private struct SettingsWindowPlacer: NSViewRepresentable {
                 coordinator.placed = true
             }
             place()
-            NSApp.activate(ignoringOtherApps: true)
-            window.orderFrontRegardless()
+            DockPresence.bringToFront(window)
             coordinator.observers = [
                 NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
                     coordinator.placed = false
                 },
                 NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main) { _ in
-                    place()
-                    NSApp.activate(ignoringOtherApps: true)
+                    MainActor.assumeIsolated {
+                        place()
+                        DockPresence.bringToFront(window)
+                    }
                 },
             ]
         }

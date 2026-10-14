@@ -8,7 +8,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKey.shared.registerFromPrefs()
         ScrollTrigger.shared.start()
         _ = Updater.shared
-        if CommandLine.arguments.contains("--timeline") {
+        if CommandLine.arguments.contains("--settings") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { DockPresence.openSettings() }
+        } else if CommandLine.arguments.contains("--timeline") {
             TimelineController.shared.show()
         } else if CommandLine.arguments.contains("--welcome") {
             WelcomeController.shared.show()
@@ -33,6 +35,7 @@ struct TimeScreenApp: App {
             MenuContent(recorder: recorder)
         } label: {
             Image(systemName: recorder.isRecording ? "record.circle" : "pause.circle")
+                .background(SettingsOpenerHook())
         }
 
         Settings {
@@ -77,7 +80,10 @@ struct MenuContent: View {
         }
         SettingsLink { Text("Settings…") }
             .keyboardShortcut(",")
-            .simultaneousGesture(TapGesture().onEnded { NSApp.activate(ignoringOtherApps: true) })
+            .simultaneousGesture(TapGesture().onEnded {
+                DockPresence.windowWillOpen()
+                DockPresence.frontOpenWindowsSoon()
+            })
         Button("Quit TimeScreen") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
@@ -91,5 +97,13 @@ struct MenuContent: View {
         let count = "\(recorder.framesToday) frames today"
         guard let last = recorder.lastCapture else { return count }
         return "\(count) · last \(last.formatted(date: .omitted, time: .standard))"
+    }
+}
+
+private struct SettingsOpenerHook: View {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Color.clear.onAppear { DockPresence.openSettingsAction = { openSettings() } }
     }
 }
