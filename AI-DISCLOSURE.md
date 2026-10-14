@@ -27,7 +27,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - On the author's Mac, and reported working by the author: capture, OCR and search with date and app filters,
   the full-screen timeline, scrolling anywhere, the global shortcut and Command+Shift+scroll, match highlighting,
   copying text, the app filter, the colored activity bar and calendar, the jump-to-time box, the settings window,
-  and pausing from the menu bar.
+  pausing from the menu bar, and the timeline lock (Touch ID or password).
 - Checked by the AI against real data: compaction of frames older than a day, and that a private Zen window stops
   a screen being captured.
 - The storage size limit, against real files in a temporary folder: it deletes the oldest frames, their search
@@ -42,8 +42,6 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - The storage size limit on the author's own history, which has never come near the smallest limit (5 GB).
 - Capturing more than one display: it was only run on a single-display Mac, so the display picker and multi-display
   capture are covered by unit tests alone.
-- The timeline lock on a real authentication prompt: its grace-period logic is unit-tested, but the Touch ID / password
-  flow itself has not been run, and nothing checks that every route to the timeline is covered beyond reading the code.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.
