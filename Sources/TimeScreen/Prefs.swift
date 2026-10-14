@@ -7,6 +7,7 @@ enum Prefs {
     static let maxStorageGB = "maxStorageGB"
     static let pauseOnBattery = "pauseOnBattery"
     static let backoffWhenAway = "backoffWhenAway"
+    static let autoSummaries = "autoSummaries"
     static let pauseInLowPower = "pauseInLowPower"
     static let ocr = "ocrEnabled"
     static let compactOld = "compactOld"
@@ -50,6 +51,7 @@ enum Prefs {
             maxStorageGB: 20,
             pauseOnBattery: false,
             backoffWhenAway: true,
+            autoSummaries: false,
             pauseInLowPower: false,
             ocr: true,
             compactOld: true,

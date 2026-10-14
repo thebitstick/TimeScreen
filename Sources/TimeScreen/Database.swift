@@ -281,6 +281,13 @@ actor Database {
                  [.text(kind.rawValue), .double(start.timeIntervalSince1970), .double(end.timeIntervalSince1970)], map: Self.summaryRecord)
     }
 
+    func blockStarts(from start: Date, to end: Date) throws -> [Date] {
+        try rows("SELECT DISTINCT (CAST(ts AS INTEGER) / 900) * 900 FROM frames WHERE ts >= ? AND ts < ? ORDER BY 1",
+                 [.double(start.timeIntervalSince1970), .double(end.timeIntervalSince1970)]) {
+            Date(timeIntervalSince1970: sqlite3_column_double($0, 0))
+        }
+    }
+
     func summaryCount() throws -> Int {
         try rows("SELECT COUNT(*) FROM summaries", []) { Int(sqlite3_column_int64($0, 0)) }.first ?? 0
     }

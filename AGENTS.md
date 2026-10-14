@@ -5,8 +5,8 @@ Guidance for Claude (or any contributor) working in this repository.
 ## What this is
 
 A native macOS menu bar app (Swift, SwiftUI, SwiftPM) that keeps a searchable history of the screen, like
-Rewind.ai without any AI inferencing: screenshots plus on-device OCR, nothing else. Everything stays on the
-Mac. MIT licensed. The code is AI-written; keep `AI-DISCLOSURE.md` truthful when that changes.
+Rewind.ai: screenshots plus on-device OCR, and optional summaries from Apple's on-device language model. Everything
+stays on the Mac. MIT licensed. The code is AI-written; keep `AI-DISCLOSURE.md` truthful when that changes.
 
 Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bitstick.*`).
 
@@ -22,6 +22,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `JumpTime.swift` | parses the timeline's jump-to-time box (ambiguous hours return both am and pm) |
 | `HotKey.swift` | the global shortcuts and the recorder control in Settings |
 | `Export.swift` | saving a frame as an image or text, and exporting a day or search results with a Markdown transcript |
+| `SummaryService.swift`, `Summarizer.swift`, `SummaryInput.swift`, `SummaryViews.swift` | on-device summaries: building prompts, caching, the Apple model, the Summary tab and day recap |
 | `SkipReason.swift` | why capture is skipped (private window, power, disk), plus the battery and free-space readings |
 | `MenuBarState.swift` | which SF Symbol and description the menu bar icon shows |
 | `Authenticator.swift` | the optional Touch ID / password lock on the timeline and its grace period |
@@ -61,7 +62,9 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 
 ## Design decisions to preserve
 
-- **Nothing leaves the Mac.** No network code, no analytics, no language model. OCR is Apple Vision on device.
+- **Nothing leaves the Mac.** No network code except Sparkle's update check, no analytics. OCR is Apple Vision on device, and the only
+  language model is Apple's on-device `SystemLanguageModel`. Never use `PrivateCloudComputeLanguageModel` or any other model that
+  sends text off the machine.
 - **Never record the app itself, the open timeline, excluded apps (password managers by default), a locked session, or a sleeping
   display.**
 - **The overlay is a borderless `OverlayWindow`,** not a native full-screen window (that never went full screen).
@@ -121,6 +124,18 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **Starred frames** (`frames.starred`) are skipped by `prune`, `oldestFrames` (so the size limit) and `framesToCompact`; only an
   explicit delete or Delete All removes them. The global Star Moment shortcut (slot 3) and the menu item star the newest frame, which
   is at most one capture interval old.
+- **Summaries** (`SummaryService`, `Summarizer`, `SummaryInput`, `SummaryViews`): the unit is a fixed 15-minute block, because app
+  runs are far too fine (apps alternate every minute) and a frame each is hundreds an hour. Blocks roll up into hours and days; a
+  frame and an app's day are on demand. The model reads text only, one request at a time, through a `TextGenerator` so the logic is
+  tested with a stub. Each request is trimmed to the model's window (8,192 tokens on macOS 27; measure with `contextSize`; ~3.2
+  characters per token): instructions + prompt + 160-280 output tokens, with a retry if the model still says it is too long. Long
+  stretches are condensed first: repeated lines (menu bars, docks) are dropped. Results are cached in `summaries`, rollups are stale
+  when their input count changes, and **deleting frames (`delete(ids:)`, prune, delete all) also deletes the summaries covering that
+  time**, so a deleted screenshot's content never lingers in a summary. Output that hit the length cap is cut back to the last whole
+  sentence. Automatic mode (off by default) writes finished blocks only while idle, plugged in and not in Low Power Mode.
+  `FoundationModels` is weakly linked (Package.swift) and used behind `#available(macOS 26)`/`canImport`, so the app still runs on
+  macOS 14; the release workflows therefore build on `macos-26`, whose SDK has the framework. `--summarize-day yyyy-MM-dd` writes a
+  day's summaries at launch and `-showRecap YES` opens the recap, for demos.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are

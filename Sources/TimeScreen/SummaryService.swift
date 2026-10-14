@@ -32,6 +32,7 @@ actor SummaryService {
     private let calendar: Calendar
 
     static let outputTokens = 160
+    static let rollupOutputTokens = 280
     private static let framesPerBlock = 40
     private static let framesPerApp = 60
 
@@ -153,8 +154,8 @@ actor SummaryService {
         let title = window.kind == .hour
             ? "The hour starting \(window.start.formatted(date: .abbreviated, time: .shortened))"
             : window.start.formatted(date: .complete, time: .omitted)
-        let result = try await generate(instructions: SummaryPrompt.rollupInstructions) { _ in
-            SummaryPrompt.rollup(title: title, notes: notes)
+        let result = try await generate(instructions: SummaryPrompt.rollupInstructions, outputTokens: Self.rollupOutputTokens) { _ in
+            SummaryPrompt.rollup(title: title, notes: notes, maxSentences: window.kind == .hour ? 3 : 5)
         }
         return try await store(window, text: result, inputs: notes.count, run: run)
     }
@@ -192,9 +193,10 @@ actor SummaryService {
     }
 
     /// Trims the prompt's text until the whole request fits the model's window, and again if the model still says it is too long.
-    private func generate(instructions: String, build: (_ characters: Int) -> String) async throws -> String {
+    private func generate(instructions: String, outputTokens: Int = SummaryService.outputTokens,
+                          build: (_ characters: Int) -> String) async throws -> String {
         var characters = 14_000
-        let budget = max(generator.contextSize - Self.outputTokens - 300, 100)
+        let budget = max(generator.contextSize - outputTokens - 300, 100)
         for _ in 0..<5 {
             let prompt = build(characters)
             let tokens = await generator.tokenCount(instructions + "\n" + prompt)
@@ -203,7 +205,7 @@ actor SummaryService {
                 continue
             }
             do {
-                return try Self.clean(try await generator.generate(instructions: instructions, prompt: prompt, maxTokens: Self.outputTokens))
+                return try Self.clean(try await generator.generate(instructions: instructions, prompt: prompt, maxTokens: outputTokens))
             } catch let error as SummaryError {
                 throw error
             } catch {
@@ -229,6 +231,14 @@ actor SummaryService {
         }
         result = result.replacingOccurrences(of: "\\s*\n\\s*", with: " ", options: .regularExpression)
         guard !result.isEmpty else { throw SummaryError.empty }
-        return result
+        return endingOnASentence(result)
+    }
+
+    /// When the model hits its length limit it stops mid-sentence; keep only the sentences that are complete.
+    static func endingOnASentence(_ text: String) -> String {
+        guard let last = text.last, !".!?\"')”’".contains(last) else { return text }
+        guard let cut = text.lastIndex(where: { ".!?".contains($0) }) else { return text }
+        let head = text[...cut]
+        return head.count >= 20 ? String(head) : text
     }
 }

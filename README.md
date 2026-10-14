@@ -5,7 +5,7 @@
 <h1 align="center">TimeScreen</h1>
 
 <p align="center">
-  A searchable history of your screen for macOS, like Rewind but <b>without the AI</b>. Everything stays on your Mac.
+  A searchable history of your screen for macOS, like Rewind, with summaries written on your Mac. Everything stays on your Mac.
 </p>
 
 <p align="center">
@@ -20,7 +20,8 @@
 
 TimeScreen lives in the menu bar and takes a screenshot every few seconds. Press a shortcut and the whole screen turns into
 a timeline you can scroll through, search and copy text from. It reads the text in each screenshot with Apple's on-device
-text recognition, and there is no language model and no inferencing anywhere.
+text recognition, and can write short summaries of a screenshot, a stretch of time, an app or a whole day with Apple's on-device
+language model (macOS 26 or later with Apple Intelligence). Nothing is ever sent off your Mac.
 
 ## Features
 
@@ -31,6 +32,7 @@ text recognition, and there is no language model and no inferencing anywhere.
 | **Search** | Search everything you've seen, filtered by date range or app. Words match from the start, `"quotes"` match an exact phrase and `-word` leaves one out. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
 | **Starred moments** | Press **S** (or use the star) to keep a screenshot forever. Starred ones are never deleted by retention or the size limit, show up as gold marks on the timeline, and are listed under the star in the top bar. A global **Star Moment** shortcut and a menu bar item star whatever is on screen now |
 | **Zoom** | Pinch, or ⌘+ ⌘− ⌘0, to zoom into a screenshot. Drag to move around, hold ⇧ and drag to select text |
+| **Summaries** | A **Summary** tab beside the screenshot writes a short recap of this screenshot, the 15 minutes around it, the hour, the day, or one app's day. The sparkles button in the top bar recaps the whole day hour by hour. Written by Apple's on-device model, saved on your Mac, and deleted along with the screenshots they cover |
 | **Text panel** | Press **T** to show the text recognized in the current screenshot beside it, with your search words highlighted |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
 | **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
@@ -69,7 +71,9 @@ icon, which macOS needs for it to bring those windows to the front.
 ## Privacy and safety
 
 - **Nothing leaves your Mac.** The only network traffic is Sparkle checking GitHub for a new version, which you can turn off in
-  Settings ▸ General.
+  Settings ▸ General. Summaries use Apple's **on-device** model only; the cloud model macOS 27 also offers is never used.
+- Summaries can be wrong, and a screen with little text gives thin ones. They are written from the recognized text alone, never from
+  the image, so check the screenshot for anything that matters.
 - Screenshots and the search index are stored **unencrypted** in `~/Library/Application Support/TimeScreen`. Turn on FileVault
   to protect them at rest. The timeline lock only guards the timeline, not those files.
 - TimeScreen never records its own windows, the timeline while it is open, a locked or sleeping Mac, or apps on the
@@ -86,6 +90,8 @@ icon, which macOS needs for it to bring those windows to the front.
   ad hoc rather than with a developer certificate.
 - **The timeline doesn't open:** check the shortcut in Settings ▸ Shortcuts (another app may use it) and, if you turned on the
   timeline lock, that you can authenticate.
+- **Summaries say the model isn't available:** they need macOS 26 or later with Apple Intelligence turned on in System Settings, and the
+  model downloaded. Settings ▸ Summaries says which of those is missing.
 - **Copy Text isn't shown:** the frame was captured with "Make screen text searchable" turned off.
 - **The timeline opens on yesterday:** nothing has been captured yet today, so it opens on the latest day with screenshots.
 - **History is using a lot of disk:** lower the retention or the size limit in Settings ▸ Storage.

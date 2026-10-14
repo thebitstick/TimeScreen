@@ -31,7 +31,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotKey.pause.registerFromPrefs()
         HotKey.star.registerFromPrefs()
         ScrollTrigger.shared.start()
+        Summarizer.shared.startAutomatic()
         _ = Updater.shared
+        if let flag = CommandLine.arguments.firstIndex(of: "--summarize-day"), CommandLine.arguments.indices.contains(flag + 1) {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd"
+            if let day = formatter.date(from: CommandLine.arguments[flag + 1]) {
+                Summarizer.shared.start(.day(containing: day), title: "Day")
+            }
+            return
+        }
         if CommandLine.arguments.contains("--settings") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { DockPresence.openSettings() }
         } else if CommandLine.arguments.contains("--timeline") {

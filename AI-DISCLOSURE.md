@@ -11,12 +11,14 @@ Sonnet 5.5, run through Claude Code) in a back-and-forth session with the projec
 - The app icon, which is drawn in code by `Scripts/make-icon.swift`.
 - Commits made with Claude's help carry a `Co-Authored-By: Claude` trailer.
 
-TimeScreen is not an AI product: it contains no language model and performs no AI inferencing. Text is read from
-screenshots with Apple's on-device Vision framework, and search is SQLite FTS5.
+TimeScreen itself uses machine learning, all of it on your Mac. Text is read from screenshots with Apple's Vision framework,
+search is SQLite full-text search, and optional summaries are written by Apple's on-device language model (the Foundation Models
+framework). The summaries are generated from recognized text only, nothing is sent anywhere, and the cloud model macOS 27 also
+offers is deliberately not used.
 
 ## What the human did
 
-The author decided what to build, set the direction (a Rewind-style timeline without the AI), chose the
+The author decided what to build, set the direction (a Rewind-style timeline, first without AI and later with on-device summaries), chose the
 features, and ran and used the app on their own Mac, reporting what worked and what did not.
 
 ## What was tested
@@ -51,6 +53,10 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   on fictional data, including restoring capitalization for frames stored with lowercase words.
 - Starred moments: the rules that protect starred frames (retention, the size limit, compaction) are unit-tested, and the star
   button, badges and gold marks were seen on fictional data. The Star Moment shortcut and the starred list were not used.
+- Summaries: the logic is unit-tested with a stub model (caching, rollups, progress, staleness, budgeting, retry, cleanup, deletion
+  with the frames they cover). A live test runs Apple's real on-device model on fictional screens and was run by the AI; it skips
+  itself where the model is unavailable. The AI also had the real model write a whole fictional day (34 blocks, 9 hours and the
+  day) through the app's own code path.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested
@@ -61,6 +67,9 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
   the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
 - Home and End in the timeline: the author's keyboard has neither key, so only ⌘← and ⌘→, which do the same, have been tried.
+- The new Summary tab, the day recap popover and the Summaries settings on screen: the display was off when they were built, so
+  they were not seen, and the automatic mode and the model on a Mac other than the author's have not been run. Summary quality
+  is plausible but not guaranteed: it can mention things that are not on screen.
 - Clicking through the export menu items and saving real files from them.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their

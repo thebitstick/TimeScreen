@@ -1089,8 +1089,9 @@ final class SummaryInputTests: XCTestCase {
         let frame = SummaryPrompt.frame(app: "Mail", title: "Inbox", date: start, text: "hi")
         XCTAssertTrue(frame.contains("App: Mail") && frame.contains("Window: Inbox") && frame.contains("hi"))
         XCTAssertFalse(SummaryPrompt.frame(app: "Mail", title: "", date: start, text: "hi").contains("Window:"))
-        let rollup = SummaryPrompt.rollup(title: "Hour 9", notes: [("09:00–09:15", "Read mail."), ("09:15–09:30", "Wrote notes.")])
+        let rollup = SummaryPrompt.rollup(title: "Hour 9", notes: [("09:00–09:15", "Read mail."), ("09:15–09:30", "Wrote notes.")], maxSentences: 3)
         XCTAssertTrue(rollup.contains("09:00–09:15: Read mail.\n09:15–09:30: Wrote notes."))
+        XCTAssertTrue(rollup.contains("at most 3 sentences"))
         XCTAssertEqual(SummaryPrompt.timeLabel(start, start.addingTimeInterval(900)).count, 11)
     }
 }
@@ -1361,7 +1362,43 @@ final class SummaryServiceTests: XCTestCase {
     func testOutputIsCleanedUp() throws {
         XCTAssertEqual(try SummaryService.clean("  Summary: Read mail.\nThen wrote notes.  "), "Read mail. Then wrote notes.")
         XCTAssertThrowsError(try SummaryService.clean("  \n "))
+        XCTAssertEqual(try SummaryService.clean("You read mail about the budget. Then you opened Safari and star"), "You read mail about the budget.")
+        XCTAssertEqual(try SummaryService.clean("You read mail about the budget."), "You read mail about the budget.")
+        XCTAssertEqual(try SummaryService.clean("Short cut off wi"), "Short cut off wi")
+        XCTAssertEqual(try SummaryService.clean("You read mail (and notes)"), "You read mail (and notes)")
         XCTAssertTrue(SummaryService.isContextOverflow(FakeContextError()))
         XCTAssertFalse(SummaryService.isContextOverflow(CocoaError(.fileNoSuchFile)))
+    }
+}
+
+/// Talks to Apple's real on-device model. Skipped on Macs where it is not available.
+final class LiveSummaryTests: XCTestCase {
+    func testTheOnDeviceModelSummarizesFictionalScreens() async throws {
+        let availability = SystemModel.availability
+        try XCTSkipUnless(availability == .available, availability.message ?? "model unavailable")
+        let generator = try XCTUnwrap(SystemModel.makeGenerator())
+        XCTAssertGreaterThan(generator.contextSize, 1000)
+
+        let db = try Database(path: NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite")
+        let calendar = Calendar.current
+        let day = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: Date()))!
+        func at(_ hour: Int, _ minute: Int) -> Date { calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)! }
+        let mail = "Inbox\nRe: offsite budget\nMaya Chen: the revised budget looks good, travel is the biggest line item\nInvoice 2041 is ready"
+        let code = "$ swift test\nTest Case 'DatabaseTests.testInsert' passed\nTest Case 'DatabaseTests.testSearch' passed\nExecuted 12 tests, with 0 failures"
+        for n in 0..<4 { _ = try await db.insert(date: at(9, 2 + n), app: "Mail", title: "Inbox", path: "m\(n)", text: mail + "\nline \(n)") }
+        for n in 0..<4 { _ = try await db.insert(date: at(9, 20 + n), app: "Terminal", title: "swift test", path: "t\(n)", text: code + "\nrun \(n)") }
+
+        let service = SummaryService(db: db, generator: generator)
+        let block = try await service.summarize(.block(containing: at(9, 5)))
+        let blockText = try XCTUnwrap(block?.text)
+        print("BLOCK SUMMARY:", blockText)
+        XCTAssertFalse(blockText.isEmpty)
+        XCTAssertLessThan(blockText.count, 700)
+
+        let hour = try await service.summarize(.hour(containing: at(9, 0)))
+        print("HOUR SUMMARY:", hour?.text ?? "nil")
+        XCTAssertEqual(hour?.inputs, 2)
+        let again = try await service.pendingCount(.hour(containing: at(9, 0)))
+        XCTAssertEqual(again, 0)
     }
 }

@@ -7,6 +7,7 @@ struct SettingsView: View {
         TabView {
             GeneralPane().tabItem { Label("General", systemImage: "gearshape") }
             ScreenPane().tabItem { Label("Screen", systemImage: "display") }
+            SummariesPane().tabItem { Label("Summaries", systemImage: "sparkles") }
             PrivacyPane().tabItem { Label("Privacy", systemImage: "lock") }
             StoragePane(recorder: recorder).tabItem { Label("Storage", systemImage: "externaldrive") }
             ShortcutsPane().tabItem { Label("Shortcuts", systemImage: "keyboard") }
@@ -151,6 +152,56 @@ private struct ScreenPane: View {
         }
         .formStyle(.columns)
         .padding(.vertical, 8)
+    }
+}
+
+private struct SummariesPane: View {
+    @ObservedObject private var summarizer = Summarizer.shared
+    @AppStorage(Prefs.autoSummaries) private var automatic = false
+    @State private var stored = 0
+    @State private var confirmDelete = false
+
+    var body: some View {
+        Form {
+            LabeledContent("Model:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let message = summarizer.availability.message {
+                        Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Label("Apple's on-device model is ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    }
+                    Button("Check Again") { summarizer.refreshAvailability() }
+                    Note("Summaries are written on this Mac by Apple's on-device model, from the text TimeScreen read on your screen. Nothing is sent anywhere.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Automatic:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Write summaries of finished 15-minute stretches", isOn: $automatic)
+                    Note("Only while the Mac is idle and plugged in, and not in Low Power Mode. Hours and days are put together from those when you ask for them. Off by default, since it uses energy.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Limits:") {
+                Note("The model reads about 8,000 tokens at a time, roughly 20,000 characters, so long stretches are boiled down to their new lines first. Each summary takes a few seconds, and a whole day can take a few minutes. Summaries can be wrong or thin when a screen has little text, so check the screenshot.")
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Stored:") {
+                HStack {
+                    Text("\(stored) \(stored == 1 ? "summary" : "summaries")")
+                    Button("Delete All…", role: .destructive) { confirmDelete = true }.disabled(stored == 0)
+                }
+            }
+        }
+        .formStyle(.columns)
+        .padding(.vertical, 8)
+        .task(id: summarizer.revision) { stored = (try? await Recorder.shared.db.summaryCount()) ?? 0 }
+        .confirmationDialog("Delete every summary?", isPresented: $confirmDelete) {
+            Button("Delete All", role: .destructive) { Task { await summarizer.deleteAll() } }
+        } message: {
+            Text("Screenshots are not touched. Summaries can be written again.")
+        }
     }
 }
 

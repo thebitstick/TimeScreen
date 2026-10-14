@@ -35,6 +35,9 @@ struct TimelineWindow: View {
     @State private var excludeRequest: ExcludeRequest?
     @State private var didChooseInitialDay = false
     @State private var zoom = PreviewZoom()
+    @State private var showRecap = false
+    @AppStorage("textPanelMode") private var panelMode = "text"
+    @ObservedObject private var summarizer = Summarizer.shared
     @State private var showStarred = false
     @State private var starredFrames: [Frame] = []
     @State private var previewSize = CGSize(width: 1, height: 1)
@@ -205,6 +208,7 @@ struct TimelineWindow: View {
             appMenu
             jumpField
             starredButton
+            recapButton
 
             Spacer()
 
@@ -251,6 +255,16 @@ struct TimelineWindow: View {
     }
 
     static func displayName(_ index: Int) -> String { index == 0 ? "Main Display" : "Display \(index + 1)" }
+
+    private var recapButton: some View {
+        Button { showRecap.toggle() } label: { Image(systemName: "sparkles") }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("A recap of this day, written on this Mac")
+            .popover(isPresented: $showRecap, arrowEdge: .bottom) {
+                DayRecapView(day: day, db: recorder.db, summarizer: summarizer)
+            }
+    }
 
     private var starredButton: some View {
         Button {
@@ -552,6 +566,7 @@ struct TimelineWindow: View {
     private func applyLaunchOptions() {
         let defaults = UserDefaults.standard
         if let text = defaults.string(forKey: "timelineQuery") { query = text }
+        if defaults.bool(forKey: "showRecap") { showRecap = true }
         if defaults.object(forKey: "previewZoom") != nil { zoom.set(scale: CGFloat(defaults.double(forKey: "previewZoom")), in: previewSize) }
         if let text = defaults.string(forKey: "timelineDay") {
             let formatter = DateFormatter()
@@ -763,28 +778,37 @@ struct TimelineWindow: View {
     private var frameText: String { fullText.isEmpty ? WordBox.text(of: boxes) : fullText }
 
     private var textPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Text").font(.headline)
-                Spacer()
-                if !frameText.isEmpty {
-                    Button("Copy", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("", selection: $panelMode) {
+                Text("Text").tag("text")
+                Text("Summary").tag("summary")
             }
-            if frameText.isEmpty {
-                Text(current == nil ? "" : "No text was recognized in this screenshot.")
-                    .foregroundStyle(.secondary)
-                Spacer()
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            if panelMode == "summary" {
+                SummaryPanel(frame: current, db: recorder.db, summarizer: summarizer)
             } else {
-                ScrollView {
-                    Text(highlightedText)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    Spacer()
+                    if !frameText.isEmpty {
+                        Button("Copy", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
+                    }
+                }
+                if frameText.isEmpty {
+                    Text(current == nil ? "" : "No text was recognized in this screenshot.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                } else {
+                    ScrollView {
+                        Text(highlightedText)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
         }
         .padding(16)
-        .frame(width: 320)
+        .frame(width: 340)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(.white.opacity(0.04))
     }

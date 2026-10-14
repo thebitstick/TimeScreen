@@ -123,14 +123,15 @@ enum SummaryInput {
 enum SummaryPrompt {
     static let instructions = """
         You write short, factual summaries of what a person was doing on their Mac, using only text read from their screen \
-        (it can be messy or incomplete). Write one to three plain sentences with no lists, headings or markdown. Say which \
-        apps or sites were involved and what the main subject was. Do not guess at things the text does not show, and do not \
-        address the reader.
+        (it can be messy or incomplete). Write one to three plain sentences with no lists, headings or markdown, in the second \
+        person ("You read an email about…"). Say which apps or sites were involved and what the main subject was. Do not guess at \
+        things the text does not show.
         """
 
     static let rollupInstructions = """
         You combine short notes about consecutive stretches of a person's time on their Mac into one brief summary. Write \
-        plain prose with no lists, headings or markdown, covering the main activities in order. Use only what the notes say.
+        plain prose in the second person ("You…") with no lists, headings or markdown, covering the main activities in order. Use only \
+        what the notes say.
         """
 
     static func timeLabel(_ start: Date, _ end: Date) -> String {
@@ -152,9 +153,9 @@ enum SummaryPrompt {
         return "Time: \(label)\nApps, most used first: \(appLine)\n\nText seen on the screen (repeated lines removed):\n\(text)\n\nSummarize what the person was doing."
     }
 
-    static func rollup(title: String, notes: [(label: String, text: String)]) -> String {
+    static func rollup(title: String, notes: [(label: String, text: String)], maxSentences: Int) -> String {
         let lines = notes.map { "\($0.label): \($0.text)" }.joined(separator: "\n")
-        return "\(title)\n\nNotes:\n\(lines)\n\nCombine these into one short summary."
+        return "\(title)\n\nNotes:\n\(lines)\n\nCombine these into one short summary of at most \(maxSentences) sentences."
     }
 
     static func appDay(app: String, day: String, text: String) -> String {
