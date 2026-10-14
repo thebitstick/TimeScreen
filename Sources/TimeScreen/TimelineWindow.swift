@@ -34,6 +34,10 @@ struct TimelineWindow: View {
     @State private var deleteRequest: DeleteRequest?
     @State private var excludeRequest: ExcludeRequest?
     @State private var didChooseInitialDay = false
+    @State private var zoom = PreviewZoom()
+    @State private var previewSize = CGSize(width: 1, height: 1)
+    @State private var panStart: CGSize?
+    @State private var pinchStart: CGFloat?
     @State private var fullText = ""
     @AppStorage("showTextPanel") private var showText = false
     @FocusState private var searchFocused: Bool
@@ -49,8 +53,7 @@ struct TimelineWindow: View {
     private var current: Frame? { currentIndex.map { frames[$0] } }
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
     private var highlights: [WordBox] {
-        let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map { $0.replacingOccurrences(of: "\"", with: "") }
-        return WordBox.matches(boxes, terms: terms)
+        WordBox.matches(boxes, terms: SearchQuery(query).highlightTerms)
     }
 
     private var selectedWords: [WordBox] {
@@ -104,6 +107,21 @@ struct TimelineWindow: View {
         .onKeyPress(characters: ["/"], phases: .down) { press in
             guard press.modifiers.isEmpty else { return .ignored }
             searchFocused = true
+            return .handled
+        }
+        .onKeyPress(characters: ["=", "+"], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            zoom.zoom(by: 1.5, in: previewSize)
+            return .handled
+        }
+        .onKeyPress(characters: ["-"], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            zoom.zoom(by: 1 / 1.5, in: previewSize)
+            return .handled
+        }
+        .onKeyPress(characters: ["0"], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            zoom.reset()
             return .handled
         }
         .onKeyPress(characters: ["t"], phases: .down) { press in
@@ -187,6 +205,7 @@ struct TimelineWindow: View {
                 TextField("Search everything you've seen", text: $query)
                     .textFieldStyle(.plain)
                     .focused($searchFocused)
+                    .help("Words match from the start. Use \"quotes\" for an exact phrase and a minus sign to leave a word out.")
                     .onKeyPress(.downArrow) { moveResult(1) }
                     .onKeyPress(.upArrow) { moveResult(-1) }
                     .onSubmit {
@@ -287,13 +306,27 @@ struct TimelineWindow: View {
     private var preview: some View {
         ZStack {
             if let image {
-                Image(nsImage: image)
-                    .resizable().scaledToFit()
-                    .overlay { highlightOverlay }
-                    .overlay { selectionOverlay }
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .shadow(color: .black.opacity(0.5), radius: 20)
-                    .padding(.horizontal, 20)
+                ZStack {
+                    Image(nsImage: image)
+                        .resizable().scaledToFit()
+                        .overlay { highlightOverlay }
+                        .overlay { selectionOverlay }
+                        .scaleEffect(zoom.scale)
+                        .offset(zoom.offset)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .shadow(color: .black.opacity(0.5), radius: 20)
+                .overlay(alignment: .topLeading) {
+                    if zoom.isZoomed {
+                        Button { zoom.reset() } label: { Text("\(Int((zoom.scale * 100).rounded()))%  ✕").monospacedDigit() }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(.black.opacity(0.6), in: Capsule())
+                            .padding(10)
+                            .help("Reset the zoom (⌘0). Drag to move; hold ⇧ and drag to select text.")
+                    }
+                }
+                .padding(.horizontal, 20)
             } else if frames.isEmpty {
                 Text(recorder.isRecording ? "Nothing captured on this day yet" : "Recording is paused")
                     .foregroundStyle(.secondary)
@@ -341,14 +374,30 @@ struct TimelineWindow: View {
             .onHover { inside in
                 if inside { NSCursor.crosshair.push() } else { NSCursor.pop() }
             }
+            .onAppear { previewSize = size }
+            .onChange(of: size) { previewSize = size }
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                guard !panning else { return }
                 let a = value.startLocation, b = value.location
                 let rect = CGRect(x: min(a.x, b.x) / size.width, y: min(a.y, b.y) / size.height,
                                   width: abs(a.x - b.x) / size.width, height: abs(a.y - b.y) / size.height)
                 selection = hypot(a.x - b.x, a.y - b.y) < 3 ? nil : rect
             })
+            .simultaneousGesture(DragGesture(minimumDistance: 0, coordinateSpace: .global).onChanged { value in
+                guard panning else { return }
+                let start = panStart ?? zoom.offset
+                panStart = start
+                zoom.pan(to: CGSize(width: start.width + value.translation.width, height: start.height + value.translation.height), in: size)
+            }.onEnded { _ in panStart = nil })
+            .simultaneousGesture(MagnifyGesture().onChanged { value in
+                let start = pinchStart ?? zoom.scale
+                pinchStart = start
+                zoom.set(scale: start * value.magnification, in: size)
+            }.onEnded { _ in pinchStart = nil })
         }
     }
+
+    private var panning: Bool { zoom.isZoomed && !NSEvent.modifierFlags.contains(.shift) }
 
     private func copyText() {
         let words = selectedWords
@@ -451,6 +500,7 @@ struct TimelineWindow: View {
     private func applyLaunchOptions() {
         let defaults = UserDefaults.standard
         if let text = defaults.string(forKey: "timelineQuery") { query = text }
+        if defaults.object(forKey: "previewZoom") != nil { zoom.set(scale: CGFloat(defaults.double(forKey: "previewZoom")), in: previewSize) }
         if let text = defaults.string(forKey: "timelineDay") {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -687,8 +737,7 @@ struct TimelineWindow: View {
     private var highlightedText: AttributedString {
         let text = frameText
         var attributed = AttributedString(text)
-        let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map { $0.replacingOccurrences(of: "\"", with: "") }
-        for range in TextHighlight.ranges(in: text, terms: terms) {
+        for range in TextHighlight.ranges(in: text, terms: SearchQuery(query).highlightTerms) {
             if let target = Range(range, in: attributed) {
                 attributed[target].backgroundColor = .yellow.opacity(0.35)
             }

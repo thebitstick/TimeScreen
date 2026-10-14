@@ -844,3 +844,103 @@ final class CaptureCadenceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(CaptureCadence.idleSeconds, 0)
     }
 }
+
+final class SearchQueryTests: XCTestCase {
+    func testPlainWordsMatchAsPrefixes() {
+        XCTAssertEqual(SearchQuery("concurr swift").matchExpression, "\"concurr\"* \"swift\"*")
+        XCTAssertNil(SearchQuery("   ").matchExpression)
+        XCTAssertNil(SearchQuery("").matchExpression)
+    }
+
+    func testQuotedPhrasesMatchExactly() {
+        XCTAssertEqual(SearchQuery("\"offsite budget\"").matchExpression, "\"offsite budget\"")
+        XCTAssertEqual(SearchQuery("notes \"offsite   budget\" travel").matchExpression, "\"notes\"* \"offsite budget\" \"travel\"*")
+        XCTAssertEqual(SearchQuery("\"unfinished phrase").matchExpression, "\"unfinished phrase\"")
+        XCTAssertNil(SearchQuery("\"\"").matchExpression)
+    }
+
+    func testAMinusLeavesAWordOrPhraseOut() {
+        XCTAssertEqual(SearchQuery("budget -travel").matchExpression, "(\"budget\"*) NOT (\"travel\"*)")
+        XCTAssertEqual(SearchQuery("budget -travel -\"hotel costs\"").matchExpression,
+                       "(\"budget\"*) NOT (\"travel\"* OR \"hotel costs\")")
+        XCTAssertNil(SearchQuery("-travel").matchExpression)
+        XCTAssertEqual(SearchQuery("e-mail").matchExpression, "\"e-mail\"*")
+        XCTAssertEqual(SearchQuery("budget -").matchExpression, "\"budget\"* \"-\"*")
+    }
+
+    func testStrayQuotesInsideAWordAreDropped() {
+        XCTAssertEqual(SearchQuery("hello wor\"ld").matchExpression, "\"hello\"* \"world\"*")
+    }
+
+    func testHighlightTermsSkipExcludedWordsAndSplitPhrases() {
+        XCTAssertEqual(SearchQuery("Budget \"Offsite Plan\" -travel").highlightTerms, ["budget", "offsite", "plan"])
+        XCTAssertTrue(SearchQuery("-travel").highlightTerms.isEmpty)
+    }
+}
+
+final class PhraseSearchTests: XCTestCase {
+    func testSearchHonoursPhrasesAndExclusions() async throws {
+        let path = NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite"
+        let db = try Database(path: path)
+        let now = Date()
+        try await db.insert(date: now, app: "Notes", title: "", path: "a.jpg", text: "the offsite budget is tight and travel is costly")
+        try await db.insert(date: now.addingTimeInterval(1), app: "Notes", title: "", path: "b.jpg", text: "budget for the offsite, travel booked")
+        try await db.insert(date: now.addingTimeInterval(2), app: "Notes", title: "", path: "c.jpg", text: "offsite plan without numbers")
+
+        let phrase = try await db.search("\"offsite budget\"")
+        XCTAssertEqual(phrase.map(\.frame.path), ["a.jpg"])
+        let both = try await db.search("offsite budget")
+        XCTAssertEqual(Set(both.map(\.frame.path)), ["a.jpg", "b.jpg"])
+        let without = try await db.search("budget -costly")
+        XCTAssertEqual(without.map(\.frame.path), ["b.jpg"])
+        let withoutPhrase = try await db.search("offsite -\"offsite budget\"")
+        XCTAssertEqual(Set(withoutPhrase.map(\.frame.path)), ["b.jpg", "c.jpg"])
+        let onlyNegative = try await db.search("-budget")
+        XCTAssertTrue(onlyNegative.isEmpty)
+
+        for odd in ["budget -", "- -", "(budget)", "budget AND travel", "budget OR", "\"", "*", "a\"b\"c", "NOT", "near/3 budget", "col:budget"] {
+            do { _ = try await db.search(odd) } catch { XCTFail("search for \(odd) threw \(error)") }
+        }
+    }
+}
+
+final class PreviewZoomTests: XCTestCase {
+    private let size = CGSize(width: 800, height: 500)
+
+    func testScaleStaysWithinTheLimits() {
+        var zoom = PreviewZoom()
+        zoom.set(scale: 0.2, in: size)
+        XCTAssertEqual(zoom.scale, 1)
+        XCTAssertFalse(zoom.isZoomed)
+        zoom.set(scale: 50, in: size)
+        XCTAssertEqual(zoom.scale, 6)
+        zoom.zoom(by: 2, in: size)
+        XCTAssertEqual(zoom.scale, 6)
+        zoom.zoom(by: 0.5, in: size)
+        XCTAssertEqual(zoom.scale, 3)
+        XCTAssertTrue(zoom.isZoomed)
+    }
+
+    func testPanningCannotUncoverTheEdges() {
+        var zoom = PreviewZoom()
+        zoom.pan(to: CGSize(width: 300, height: 300), in: size)
+        XCTAssertEqual(zoom.offset, .zero)
+        zoom.set(scale: 2, in: size)
+        zoom.pan(to: CGSize(width: 1000, height: -1000), in: size)
+        XCTAssertEqual(zoom.offset, CGSize(width: 400, height: -250))
+        zoom.pan(to: CGSize(width: 10, height: 20), in: size)
+        XCTAssertEqual(zoom.offset, CGSize(width: 10, height: 20))
+    }
+
+    func testZoomingBackOutPullsTheImageBackIntoView() {
+        var zoom = PreviewZoom()
+        zoom.set(scale: 4, in: size)
+        zoom.pan(to: CGSize(width: 1200, height: 700), in: size)
+        XCTAssertEqual(zoom.offset, CGSize(width: 1200, height: 700))
+        zoom.set(scale: 2, in: size)
+        XCTAssertEqual(zoom.offset, CGSize(width: 400, height: 250))
+        zoom.reset()
+        XCTAssertEqual(zoom.offset, .zero)
+        XCTAssertEqual(zoom.scale, 1)
+    }
+}

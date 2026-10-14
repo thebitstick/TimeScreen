@@ -114,6 +114,10 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   Check with `footprint <pid>`; a large IOSurface line means images are being held.
 - **Cadence:** captures slow to every 15 s after a minute without input and every 30 s after five (`CaptureCadence`), and the loop
   wakes early when you return. Settings ▸ Screen ▸ When away turns it off.
+- **Search syntax** lives in `SearchQuery` (words are prefixes, `"phrases"` are exact, `-word` is `NOT`); the same parse feeds the
+  FTS expression and the highlight terms, so excluded words are never highlighted. Odd input must never make a search throw.
+- **Zoom** (`PreviewZoom`): the zoomed image is clipped to its unscaled frame; when zoomed a drag pans (using global coordinates, since
+  the view moves under the finger) and ⇧-drag selects. `-previewZoom 2.5` sets it at launch.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are

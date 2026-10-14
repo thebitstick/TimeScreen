@@ -267,12 +267,7 @@ actor Database {
     }
 
     nonisolated static func matchExpression(_ query: String) -> String? {
-        let terms = query
-            .split(whereSeparator: { $0.isWhitespace })
-            .map { $0.replacingOccurrences(of: "\"", with: "") }
-            .filter { !$0.isEmpty }
-        guard !terms.isEmpty else { return nil }
-        return terms.map { "\"\($0)\"*" }.joined(separator: " ")
+        SearchQuery(query).matchExpression
     }
 
 
