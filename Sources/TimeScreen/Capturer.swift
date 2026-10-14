@@ -59,16 +59,30 @@ struct OCRResult {
     var failure: Error?
 }
 
+struct RecognitionHealth {
+    static let limit = 3
+    static let warning = "Text recognition stopped working, so new screenshots can't be searched. Quit and reopen TimeScreen."
+
+    private(set) var failures = 0
+    var isFailing: Bool { failures >= Self.limit }
+
+    mutating func record(failed: Bool) {
+        failures = failed ? failures + 1 : 0
+    }
+}
+
 enum OCR {
-    static func recognize(_ image: CGImage) -> OCRResult {
+    static func recognize(_ image: CGImage, perform: (CGImage, VNRecognizeTextRequest) throws -> Void = { image, request in
+        try VNImageRequestHandler(cgImage: image).perform([request])
+    }) -> OCRResult {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
         do {
             do {
-                try VNImageRequestHandler(cgImage: image).perform([request])
+                try perform(image, request)
             } catch {
-                try VNImageRequestHandler(cgImage: image).perform([request])
+                try perform(image, request)
             }
         } catch {
             NSLog("TimeScreen: text recognition failed: %@", String(describing: error))

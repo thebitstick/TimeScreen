@@ -13,8 +13,21 @@ struct PreviewZoom: Equatable {
         offset = clamped(offset, in: size)
     }
 
+    /// Keeps the point of the image under `anchor` (in the view's own coordinates) where it was when the pinch began.
+    mutating func pinch(to proposed: CGFloat, around anchor: CGPoint, from start: PreviewZoom, in size: CGSize) {
+        scale = min(max(proposed, Self.range.lowerBound), Self.range.upperBound)
+        let growth = start.scale - scale
+        offset = clamped(CGSize(width: start.offset.width + growth * (anchor.x - size.width / 2),
+                                height: start.offset.height + growth * (anchor.y - size.height / 2)), in: size)
+    }
+
     mutating func zoom(by factor: CGFloat, in size: CGSize) {
         set(scale: scale * factor, in: size)
+    }
+
+    mutating func zoom(by factor: CGFloat, around anchor: CGPoint?, in size: CGSize) {
+        guard let anchor else { return zoom(by: factor, in: size) }
+        pinch(to: scale * factor, around: anchor, from: self, in: size)
     }
 
     mutating func pan(to proposed: CGSize, in size: CGSize) {

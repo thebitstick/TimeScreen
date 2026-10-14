@@ -1,7 +1,7 @@
 import AppKit
 import Sparkle
 
-final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
+final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate, @preconcurrency SPUStandardUserDriverDelegate {
     static let shared = Updater()
 
     @Published private(set) var availableVersion: String?

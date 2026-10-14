@@ -19,9 +19,18 @@ struct SettingsView: View {
 }
 
 private struct SettingsWindowPlacer: NSViewRepresentable {
+    @MainActor
     final class Coordinator {
         var placed = false
         var observers: [NSObjectProtocol] = []
+
+        func place(_ window: NSWindow) {
+            guard !placed, let screen = window.screen ?? NSScreen.main else { return }
+            let area = screen.visibleFrame
+            let size = window.frame.size
+            window.setFrameOrigin(NSPoint(x: area.midX - size.width / 2, y: area.minY + area.height * 0.62 - size.height / 2))
+            placed = true
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -29,24 +38,17 @@ private struct SettingsWindowPlacer: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         let coordinator = context.coordinator
-        DispatchQueue.main.async {
+        Task { @MainActor in
             guard let window = view.window else { return }
-            func place() {
-                guard !coordinator.placed, let screen = window.screen ?? NSScreen.main else { return }
-                let area = screen.visibleFrame
-                let size = window.frame.size
-                window.setFrameOrigin(NSPoint(x: area.midX - size.width / 2, y: area.minY + area.height * 0.62 - size.height / 2))
-                coordinator.placed = true
-            }
-            place()
+            coordinator.place(window)
             DockPresence.bringToFront(window)
             coordinator.observers = [
                 NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
-                    coordinator.placed = false
+                    MainActor.assumeIsolated { coordinator.placed = false }
                 },
                 NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main) { _ in
                     MainActor.assumeIsolated {
-                        place()
+                        coordinator.place(window)
                         DockPresence.bringToFront(window)
                     }
                 },

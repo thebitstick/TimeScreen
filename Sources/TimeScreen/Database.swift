@@ -102,7 +102,7 @@ actor Database {
         case text(String), int(Int64), double(Double), blob(Data), null
     }
 
-    private var handle: OpaquePointer?
+    nonisolated(unsafe) private var handle: OpaquePointer?
 
     init(path: String) throws {
         var db: OpaquePointer?
@@ -183,9 +183,7 @@ actor Database {
         guard !ids.isEmpty else { return }
         try transaction {
             let list = ids.map(String.init).joined(separator: ",")
-            if let span = try rows("SELECT MIN(ts), MAX(ts) FROM frames WHERE id IN (\(list))", [], map: { (sqlite3_column_double($0, 0), sqlite3_column_double($0, 1)) }).first {
-                try run("DELETE FROM summaries WHERE end >= ? AND start <= ?", [.double(span.0), .double(span.1)])
-            }
+            try run("DELETE FROM summaries WHERE EXISTS (SELECT 1 FROM frames WHERE id IN (\(list)) AND ts BETWEEN summaries.start AND summaries.end)", [])
             for id in ids {
                 try run("DELETE FROM frames_fts WHERE rowid = ?", [.int(id)])
                 try run("DELETE FROM boxes WHERE frame_id = ?", [.int(id)])

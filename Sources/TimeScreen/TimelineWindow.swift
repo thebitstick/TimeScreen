@@ -41,8 +41,9 @@ struct TimelineWindow: View {
     @State private var showStarred = false
     @State private var starredFrames: [Frame] = []
     @State private var previewSize = CGSize(width: 1, height: 1)
+    @State private var pointer = PointerTracker()
     @State private var panStart: CGSize?
-    @State private var pinchStart: CGFloat?
+    @State private var pinchStart: PinchStart?
     @State private var fullText = ""
     @State private var boxesID: Int64?
     @AppStorage("showTextPanel") private var showText = false
@@ -60,6 +61,10 @@ struct TimelineWindow: View {
     private var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
     private var highlights: [WordBox] {
         WordBox.matches(boxes, terms: SearchQuery(query).highlightTerms)
+    }
+
+    private var isTypingInTextField: Bool {
+        (NSApp.keyWindow?.firstResponder as? NSTextView)?.isFieldEditor == true
     }
 
     private var selectedWords: [WordBox] {
@@ -93,6 +98,7 @@ struct TimelineWindow: View {
         .focusEffectDisabled()
         .focused($focused)
         .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+            guard !isTypingInTextField else { return .ignored }
             let direction = press.key == .rightArrow ? 1 : -1
             if press.modifiers.contains(.command) {
                 jumpToEnd(first: direction < 0)
@@ -103,44 +109,60 @@ struct TimelineWindow: View {
             }
             return .handled
         }
-        .onKeyPress(.home) { jumpToEnd(first: true); return .handled }
-        .onKeyPress(.end) { jumpToEnd(first: false); return .handled }
+        .onKeyPress(.home) {
+            guard !isTypingInTextField else { return .ignored }
+            jumpToEnd(first: true)
+            return .handled
+        }
+        .onKeyPress(.end) {
+            guard !isTypingInTextField else { return .ignored }
+            jumpToEnd(first: false)
+            return .handled
+        }
         .onKeyPress(characters: ["f"], phases: .down) { press in
             guard press.modifiers == .command else { return .ignored }
             searchFocused = true
             return .handled
         }
         .onKeyPress(characters: ["/"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.isEmpty else { return .ignored }
             searchFocused = true
             return .handled
         }
         .onKeyPress(characters: ["=", "+"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.contains(.command) else { return .ignored }
-            zoom.zoom(by: 1.5, in: previewSize)
+            zoom.zoom(by: 1.5, around: pointer.location, in: previewSize)
             return .handled
         }
         .onKeyPress(characters: ["-"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.contains(.command) else { return .ignored }
-            zoom.zoom(by: 1 / 1.5, in: previewSize)
+            zoom.zoom(by: 1 / 1.5, around: pointer.location, in: previewSize)
             return .handled
         }
         .onKeyPress(characters: ["0"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.contains(.command) else { return .ignored }
             zoom.reset()
+            pointer.location = nil
             return .handled
         }
         .onKeyPress(characters: ["s"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.isEmpty else { return .ignored }
             toggleStar()
             return .handled
         }
         .onKeyPress(characters: ["t"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.isEmpty else { return .ignored }
             showText.toggle()
             return .handled
         }
         .onKeyPress(characters: ["c"], phases: .down) { press in
+            guard !isTypingInTextField else { return .ignored }
             guard press.modifiers == .command else { return .ignored }
             copyText()
             return .handled
@@ -155,7 +177,7 @@ struct TimelineWindow: View {
         .task(id: SearchKey(query: query, app: searchApp, range: searchRange, day: day)) { await runSearch() }
         .onChange(of: appFilter) { keepSelectionVisible() }
         .task(id: selectedID) { await loadImage() }
-        .task(id: BoxKey(id: selectedID, searching: isSearching)) { await loadBoxes() }
+        .task(id: selectedID) { await loadBoxes() }
         .confirmationDialog(deleteRequest?.title ?? "", isPresented: Binding(get: { deleteRequest != nil }, set: { if !$0 { deleteRequest = nil } }),
                             titleVisibility: .visible, presenting: deleteRequest) { request in
             Button("Delete \(request.frames.count) \(request.frames.count == 1 ? "Frame" : "Frames")", role: .destructive) {
@@ -199,21 +221,22 @@ struct TimelineWindow: View {
 
     private var topBar: some View {
         HStack(spacing: 12) {
-            Button { showCalendar.toggle() } label: {
-                Label(day.formatted(.dateTime.weekday(.wide).month().day()), systemImage: "calendar")
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $showCalendar, arrowEdge: .bottom) {
-                CalendarPopover(days: days, day: $day) { showCalendar = false }
-            }
+            HStack(spacing: 12) {
+                Button { showCalendar.toggle() } label: {
+                    Label(day.formatted(.dateTime.weekday(.wide).month().day()), systemImage: "calendar")
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showCalendar, arrowEdge: .bottom) {
+                    CalendarPopover(days: days, day: $day) { showCalendar = false }
+                }
 
-            if displays.count > 1 { displayMenu }
-            appMenu
-            jumpField
-            starredButton
-            recapButton
-
-            Spacer()
+                if displays.count > 1 { displayMenu }
+                appMenu
+                jumpField
+                starredButton
+                recapButton
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -236,11 +259,10 @@ struct TimelineWindow: View {
             .frame(maxWidth: 420)
             .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
 
-            Spacer()
-
             Button(action: onClose) { Image(systemName: "xmark") }
                 .buttonStyle(.plain)
                 .help("Close (esc)")
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 20)
         .padding(.top, 34) // clears the fullscreen menu bar reveal area
@@ -387,12 +409,12 @@ struct TimelineWindow: View {
                 .shadow(color: .black.opacity(0.5), radius: 20)
                 .overlay(alignment: .topLeading) {
                     if zoom.isZoomed {
-                        Button { zoom.reset() } label: { Text("\(Int((zoom.scale * 100).rounded()))%  ✕").monospacedDigit() }
+                        Button { zoom.reset(); pointer.location = nil } label: { Text("\(Int((zoom.scale * 100).rounded()))%  ✕").monospacedDigit() }
                             .buttonStyle(.plain)
                             .padding(.horizontal, 8).padding(.vertical, 4)
                             .background(.black.opacity(0.6), in: Capsule())
                             .padding(10)
-                            .help("Reset the zoom (⌘0). Drag to move; hold ⇧ and drag to select text.")
+                            .help("Reset the zoom (⌘0). Drag to select text; hold ⇧ and drag to move.")
                     }
                 }
                 .padding(.horizontal, 20)
@@ -443,6 +465,12 @@ struct TimelineWindow: View {
             .onHover { inside in
                 if inside { NSCursor.crosshair.push() } else { NSCursor.pop() }
             }
+            .onContinuousHover { phase in
+                switch phase {
+                case .active(let location): pointer.location = location
+                case .ended: pointer.location = nil
+                }
+            }
             .onAppear { previewSize = size }
             .onChange(of: size) { previewSize = size }
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
@@ -457,16 +485,19 @@ struct TimelineWindow: View {
                 let start = panStart ?? zoom.offset
                 panStart = start
                 zoom.pan(to: CGSize(width: start.width + value.translation.width, height: start.height + value.translation.height), in: size)
-            }.onEnded { _ in panStart = nil })
+            }.onEnded { _ in
+                panStart = nil
+                pointer.location = nil
+            })
             .simultaneousGesture(MagnifyGesture().onChanged { value in
-                let start = pinchStart ?? zoom.scale
+                let start = pinchStart ?? PinchStart(zoom: zoom, anchor: CGPoint(x: value.startAnchor.x * size.width, y: value.startAnchor.y * size.height))
                 pinchStart = start
-                zoom.set(scale: start * value.magnification, in: size)
+                zoom.pinch(to: start.zoom.scale * value.magnification, around: start.anchor, from: start.zoom, in: size)
             }.onEnded { _ in pinchStart = nil })
         }
     }
 
-    private var panning: Bool { zoom.isZoomed && !NSEvent.modifierFlags.contains(.shift) }
+    private var panning: Bool { zoom.isZoomed && NSEvent.modifierFlags.contains(.shift) }
 
     private func copyText() {
         guard boxesID == selectedID else { return }
@@ -950,7 +981,7 @@ private struct FilmstripCell: View {
 }
 
 enum Thumbnails {
-    private static let cache: NSCache<NSString, NSImage> = {
+    nonisolated(unsafe) private static let cache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.countLimit = 600
         cache.totalCostLimit = 64 * 1024 * 1024
@@ -986,6 +1017,7 @@ enum Thumbnails {
     }
 }
 
+@MainActor
 final class ScrubBridge {
     weak var scrollView: NSScrollView? {
         didSet { if scrollView !== oldValue { observe() } }
@@ -999,7 +1031,7 @@ final class ScrubBridge {
         guard let clip = scrollView?.contentView else { return }
         clip.postsBoundsChangedNotifications = true
         token = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
-            self?.onScroll?(clip.bounds.origin.x)
+            MainActor.assumeIsolated { self?.onScroll?(clip.bounds.origin.x) }
         }
     }
 }
@@ -1039,9 +1071,14 @@ private struct SearchKey: Hashable {
     let day: Date
 }
 
-private struct BoxKey: Hashable {
-    let id: Int64?
-    let searching: Bool
+/// Not observable on purpose: it changes with every mouse move and nothing needs to redraw for it.
+final class PointerTracker {
+    var location: CGPoint?
+}
+
+private struct PinchStart {
+    let zoom: PreviewZoom
+    let anchor: CGPoint
 }
 
 private struct ScrollRequest: Equatable {

@@ -52,7 +52,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   unit-tested; the orphan test caught a path-comparison bug that would have deleted indexed files. The Text panel was seen
   on fictional data, including restoring capitalization for frames stored with lowercase words.
 - Starred moments: the rules that protect starred frames (retention, the size limit, compaction) are unit-tested, and the star
-  button, badges and gold marks were seen on fictional data. The Star Moment shortcut and the starred list were not used.
+  button, badges and yellow marks were seen on fictional data, and the author confirmed starring, the Star Moment shortcut and the sound of the Pause shortcut work on their own Mac.
 - Summaries: the logic is unit-tested with a stub model (caching, rollups, progress, staleness, budgeting, retry, cleanup, deletion
   with the frames they cover). A live test runs Apple's real on-device model on fictional screens and was run by the AI; it skips
   itself where the model is unavailable. The AI also had the real model write a whole fictional day (34 blocks, 9 hours and the
@@ -61,6 +61,14 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - A review of everything since the last release (reading every changed file, a clean debug build, a strict-concurrency build, and tests for
   each defect found): it found and fixed a failing hour and day recap when one stretch had no text, retention and compaction stalling while
   recording is paused, non-atomic writes, and Esc closing the whole timeline from inside a dialog.
+- Text recognition stalling: a long-running copy once kept saving screenshots with no recognized text after the display slept, and the author
+  found it because text could not be selected. The cause was not found. The fix (the error is logged, each screenshot gets one retry, and the menu warns
+  after three failures in a row) is unit-tested, including real Vision reading drawn text, but the stuck state itself was never reproduced, so it is
+  not known whether the retry clears it. Quitting and reopening the app did.
+- Zooming: the zoom limits, panning clamps and the pinch anchor math are unit-tested. The author confirmed on their own Mac that dragging selects
+  text (also while zoomed), ⇧-drag moves the image, and a pinch zooms toward the fingers instead of the center.
+- Exporting: the author saved images in each format and exported a day on their own Mac, and confirmed ⌘C, Esc, ⌘F and the single-key shortcuts behave
+  both inside and outside the search and jump boxes.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested
@@ -73,8 +81,9 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Home and End in the timeline: the author's keyboard has neither key, so only ⌘← and ⌘→, which do the same, have been tried.
 - Background summaries (on by default) on real use over time, and the model on a Mac other than the author's. Summary quality is plausible but not guaranteed: it can
   mention things that are not on screen. The Summary tab, the day recap and the Summaries settings were seen on fictional data (the
-  recap's list was found cut off and fixed), but the author has not yet used them on their own history.
-- Clicking through the export menu items and saving real files from them.
+  recap's list was found cut off and fixed). The author has since tried them on their own history and found them quick but basic; background
+  summaries over days of use are still untested. A real example of the limits: while the author watched a stream, chat text in the video was read as
+  part of the screen, and a recap turned a chat mention of Bitcoin into "bitcoin burger".
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
   titles. Other browsers are matched by title words and were only tried with Zen.

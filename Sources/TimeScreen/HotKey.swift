@@ -20,6 +20,7 @@ struct HotKeySlot {
 }
 
 /// A system-wide shortcut through Carbon's hot key API, which needs no extra permissions.
+@MainActor
 final class HotKey {
     static let timeline = HotKey(.timeline)
     static let pause = HotKey(.pause)
@@ -63,7 +64,7 @@ final class HotKey {
             var identifier = EventHotKeyID()
             GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
                               MemoryLayout<EventHotKeyID>.size, nil, &identifier)
-            DispatchQueue.main.async { HotKey.registry[identifier.id]?.onPress?() }
+            DispatchQueue.main.async { MainActor.assumeIsolated { HotKey.registry[identifier.id]?.onPress?() } }
             return noErr
         }, 1, &spec, nil, nil)
     }

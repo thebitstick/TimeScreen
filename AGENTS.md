@@ -120,8 +120,10 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   wakes early when you return. Settings ▸ Screen ▸ When away turns it off.
 - **Search syntax** lives in `SearchQuery` (words are prefixes, `"phrases"` are exact, `-word` is `NOT`); the same parse feeds the
   FTS expression and the highlight terms, so excluded words are never highlighted. Odd input must never make a search throw.
-- **Zoom** (`PreviewZoom`): the zoomed image is clipped to its unscaled frame; when zoomed a drag pans (using global coordinates, since
-  the view moves under the finger) and ⇧-drag selects. `-previewZoom 2.5` sets it at launch.
+- **Zoom** (`PreviewZoom`): the zoomed image is clipped to its unscaled frame; a drag always selects text, and when zoomed ⇧-drag pans (using global coordinates, since
+  the view moves under the finger). Pinch and ⌘+ ⌘− zoom around the pointer (`PreviewZoom.pinch`): the pointer's position comes from a non-observable
+  `PointerTracker` (hover events fire only when the mouse moves, so it is cleared after a reset or pan and zoom falls back to the center).
+  `-previewZoom 2.5` sets it at launch.
 - **Starred frames** (`frames.starred`) are skipped by `prune`, `oldestFrames` (so the size limit) and `framesToCompact`; only an
   explicit delete or Delete All removes them. The global Star Moment shortcut (slot 3) and the menu item star the newest frame, which
   is at most one capture interval old.

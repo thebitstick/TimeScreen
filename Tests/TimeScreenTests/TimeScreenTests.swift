@@ -933,6 +933,50 @@ final class PreviewZoomTests: XCTestCase {
         XCTAssertEqual(zoom.offset, CGSize(width: 10, height: 20))
     }
 
+    func testPinchingKeepsThePointUnderTheFingersInPlace() {
+        let size = CGSize(width: 800, height: 600)
+        let anchor = CGPoint(x: 700, y: 150)
+        func screenPosition(of point: CGPoint, _ zoom: PreviewZoom) -> CGPoint {
+            CGPoint(x: size.width / 2 + zoom.offset.width + zoom.scale * (point.x - size.width / 2),
+                    y: size.height / 2 + zoom.offset.height + zoom.scale * (point.y - size.height / 2))
+        }
+        var zoom = PreviewZoom()
+        let start = zoom
+        for magnification in [1.5, 2, 3] as [CGFloat] {
+            zoom.pinch(to: start.scale * magnification, around: anchor, from: start, in: size)
+            XCTAssertEqual(screenPosition(of: anchor, zoom).x, anchor.x, accuracy: 0.001)
+            XCTAssertEqual(screenPosition(of: anchor, zoom).y, anchor.y, accuracy: 0.001)
+        }
+        zoom.pinch(to: 1, around: anchor, from: start, in: size)
+        XCTAssertEqual(zoom.offset, .zero)
+    }
+
+    func testKeyboardZoomAroundThePointerKeepsItInPlace() {
+        let size = CGSize(width: 800, height: 600)
+        let pointer = CGPoint(x: 100, y: 500)
+        var zoom = PreviewZoom()
+        zoom.zoom(by: 1.5, around: pointer, in: size)
+        zoom.zoom(by: 1.5, around: pointer, in: size)
+        let x = size.width / 2 + zoom.offset.width + zoom.scale * (pointer.x - size.width / 2)
+        let y = size.height / 2 + zoom.offset.height + zoom.scale * (pointer.y - size.height / 2)
+        XCTAssertEqual(zoom.scale, 2.25, accuracy: 0.0001)
+        XCTAssertEqual(x, pointer.x, accuracy: 0.001)
+        XCTAssertEqual(y, pointer.y, accuracy: 0.001)
+
+        var centered = PreviewZoom()
+        centered.zoom(by: 2, around: nil, in: size)
+        XCTAssertEqual(centered.offset, .zero)
+    }
+
+    func testPinchingPastTheEdgeStaysInsideTheImage() {
+        let size = CGSize(width: 800, height: 600)
+        var zoom = PreviewZoom()
+        let start = zoom
+        zoom.pinch(to: 100, around: CGPoint(x: 800, y: 600), from: start, in: size)
+        XCTAssertEqual(zoom.scale, PreviewZoom.range.upperBound)
+        XCTAssertEqual(zoom.offset, zoom.clamped(zoom.offset, in: size))
+    }
+
     func testZoomingBackOutPullsTheImageBackIntoView() {
         var zoom = PreviewZoom()
         zoom.set(scale: 4, in: size)
@@ -1146,6 +1190,21 @@ final class SummaryStoreTests: XCTestCase {
         let afterSecond = try await db.summaries(kind: .block, from: base.addingTimeInterval(-86_400), to: base.addingTimeInterval(86_400 * 2))
         XCTAssertEqual(afterSecond.map(\.key), ["elsewhere"])
         try await db.delete(ids: [])
+    }
+
+    func testDeletingScatteredFramesKeepsSummariesBetweenThem() async throws {
+        let db = try makeDatabase()
+        let base = Date().addingTimeInterval(-86_400 * 3)
+        let first = try await db.insert(date: base, app: "A", title: "", path: "a", text: "one")
+        let last = try await db.insert(date: base.addingTimeInterval(7200), app: "A", title: "", path: "b", text: "two")
+        _ = try await db.insert(date: base.addingTimeInterval(3700), app: "A", title: "", path: "m", text: "middle")
+        try await db.saveSummary(record(.block, "first", start: base, end: base.addingTimeInterval(900)))
+        try await db.saveSummary(record(.block, "middle", start: base.addingTimeInterval(3600), end: base.addingTimeInterval(4500)))
+        try await db.saveSummary(record(.block, "last", start: base.addingTimeInterval(7200), end: base.addingTimeInterval(8100)))
+
+        try await db.delete(ids: [first, last])
+        let kept = try await db.summaries(kind: .block, from: base.addingTimeInterval(-3600), to: base.addingTimeInterval(86_400))
+        XCTAssertEqual(kept.map(\.key), ["middle"])
     }
 
     func testPruningAndDeleteAllClearSummaries() async throws {
@@ -1550,5 +1609,59 @@ final class LargeIndexRecoveryTests: XCTestCase {
         try Data("not a database".utf8).write(to: URL(fileURLWithPath: dir.appendingPathComponent("junk.sqlite").path))
         XCTAssertFalse(DatabaseRecovery.isHealthy(path: dir.appendingPathComponent("junk.sqlite").path))
         XCTAssertFalse(DatabaseRecovery.isHealthy(path: dir.appendingPathComponent("junk.sqlite").path, fullCheckLimit: 1))
+    }
+}
+
+final class RecognitionTests: XCTestCase {
+    private func image(drawing text: String? = nil) -> CGImage {
+        let size = NSSize(width: 900, height: 200)
+        let rendered = NSImage(size: size, flipped: false) { rect in
+            NSColor.white.setFill()
+            rect.fill()
+            text.map { NSAttributedString(string: $0, attributes: [.font: NSFont.systemFont(ofSize: 72), .foregroundColor: NSColor.black]).draw(at: NSPoint(x: 20, y: 60)) }
+            return true
+        }
+        return rendered.cgImage(forProposedRect: nil, context: nil, hints: nil)!
+    }
+
+    func testRecognizesDrawnText() {
+        let result = OCR.recognize(image(drawing: "Invoice number 4821"))
+        XCTAssertNil(result.failure)
+        XCTAssertTrue(result.text.lowercased().contains("invoice"), result.text)
+        XCTAssertFalse(result.words.isEmpty)
+    }
+
+    func testRetriesOnceBeforeGivingUp() {
+        var attempts = 0
+        let recovered = OCR.recognize(image()) { _, _ in
+            attempts += 1
+            if attempts == 1 { throw CaptureError.encode }
+        }
+        XCTAssertNil(recovered.failure)
+        XCTAssertEqual(attempts, 2)
+
+        attempts = 0
+        let failed = OCR.recognize(image()) { _, _ in
+            attempts += 1
+            throw CaptureError.encode
+        }
+        XCTAssertNotNil(failed.failure)
+        XCTAssertEqual(attempts, 2)
+        XCTAssertTrue(failed.text.isEmpty)
+    }
+
+    func testWarnsAfterThreeFailuresInARowAndRecovers() {
+        var health = RecognitionHealth()
+        health.record(failed: true)
+        health.record(failed: true)
+        XCTAssertFalse(health.isFailing)
+        health.record(failed: false)
+        health.record(failed: true)
+        health.record(failed: true)
+        XCTAssertFalse(health.isFailing)
+        health.record(failed: true)
+        XCTAssertTrue(health.isFailing)
+        health.record(failed: false)
+        XCTAssertFalse(health.isFailing)
     }
 }

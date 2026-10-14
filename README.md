@@ -31,7 +31,7 @@ language model (macOS 26 or later with Apple Intelligence). Nothing is ever sent
 | **Timeline** | A full-screen filmstrip you scrub by scrolling anywhere. A colored bar shows which app you were in all day, with its icon. Pick days from a calendar, filter by app, or type a time (`3:45pm`, `15:30`, `noon`) into **Jump to time** |
 | **Search** | Search everything you've seen, filtered by date range or app. Words match from the start, `"quotes"` match an exact phrase and `-word` leaves one out. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
 | **Starred moments** | Press **S** (or use the star) to keep a screenshot forever. Starred ones are never deleted by retention or the size limit, show up as gold marks on the timeline, and are listed under the star in the top bar. A global **Star Moment** shortcut and a menu bar item star whatever is on screen now |
-| **Zoom** | Pinch, or ⌘+ ⌘− ⌘0, to zoom into a screenshot. Drag to move around, hold ⇧ and drag to select text |
+| **Zoom** | Pinch, or ⌘+ ⌘− ⌘0, to zoom into a screenshot toward the pointer. Drag to select text, hold ⇧ and drag to move around |
 | **Summaries** | Short recaps of a screenshot, a 15-minute stretch, an hour, a day or one app's day, written by Apple's on-device model (macOS 26+ with Apple Intelligence). See [Summaries](#summaries) |
 | **Text panel** | Press **T** to show the text recognized in the current screenshot beside it, with your search words highlighted |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
@@ -92,7 +92,7 @@ later. A welcome window walks you through allowing **Screen Recording**.
 | Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **⌘← ⌘→** (or **Home** and **End**) to the first and last frame |
 | Search | **⌘F** or **/** focuses the search box. **↑ ↓** step through results and **Return** hands focus back |
 | Text and summaries | **T** shows or hides the side panel, which has a Text tab and a Summary tab |
-| Zoom | Pinch, or **⌘+ ⌘− ⌘0**. Drag to move, hold **⇧** and drag to select text |
+| Zoom | Pinch, or **⌘+ ⌘− ⌘0**. Drag to select text, hold **⇧** and drag to move |
 | Star | **S** stars or unstars the current screenshot |
 | Close | **Esc** |
 | Pause | Menu bar ▸ Pause Recording, or Pause For 15 minutes, 1 hour or 8 hours. You can also set a global **Pause / Resume** shortcut in Settings ▸ Shortcuts, which plays a short sound |
