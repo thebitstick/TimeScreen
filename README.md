@@ -31,7 +31,7 @@ text recognition, and there is no language model and no inferencing anywhere.
 | **Search** | Search everything you've seen, filtered by date range or app. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
 | **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
-| **Export** | Save a screenshot or a whole day as a folder with a Markdown transcript, in your choice of **Most Compatible** (JPEG) or **High Efficiency** (HEIC). Copy an image, or save its text. Search results export as a transcript too |
+| **Export** | Save a screenshot or a whole day as a folder with a Markdown transcript, in your choice of **Most Compatible** (JPEG), **High Efficiency** (HEIC) or **Best Quality** (PNG, lossless; screenshots are stored compressed, so it keeps what is stored without losing more). Copy an image, or save its text. Search results export as a transcript too |
 | **Delete** | Delete the frame you're looking at, the last 5, 15 or 60 minutes (also from the menu bar), or a whole day |
 | **Storage** | Keep history from 7 days to forever, with a size limit (20 GB by default) that deletes the oldest screenshots first |
 | **Power** | Optionally pauses on battery power or in Low Power Mode, and always when less than 1 GB of disk space is free |

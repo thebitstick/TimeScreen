@@ -622,6 +622,20 @@ final class ExportTests: XCTestCase {
         let back = dir.appendingPathComponent("back.heic")
         try ImageEncoding.write(jpeg, as: .highEfficiency, to: back)
         XCTAssertEqual(try kind(back), UTType.heic.identifier)
+
+        let png = dir.appendingPathComponent("out.png")
+        try ImageEncoding.write(heic, as: .bestQuality, to: png)
+        XCTAssertEqual(try kind(png), UTType.png.identifier)
+        XCTAssertEqual(try Data(contentsOf: png).prefix(4), Data([0x89, 0x50, 0x4E, 0x47]))
+    }
+
+    func testPNGIsLosslessOnceItIsPNG() throws {
+        let dir = try scratch()
+        let png = dir.appendingPathComponent("in.png")
+        try makeImage(png, as: .bestQuality)
+        let copy = dir.appendingPathComponent("out.png")
+        try ImageEncoding.write(png, as: .bestQuality, to: copy)
+        XCTAssertEqual(try Data(contentsOf: copy), try Data(contentsOf: png))
     }
 
     func testFormatsKnowTheirFiles() {
@@ -631,6 +645,11 @@ final class ExportTests: XCTestCase {
         XCTAssertTrue(ExportFormat.highEfficiency.matches(URL(fileURLWithPath: "/x/a.heic")))
         XCTAssertEqual(ExportFormat.mostCompatible.fileExtension, "jpg")
         XCTAssertEqual(ExportFormat.highEfficiency.fileExtension, "heic")
+        XCTAssertTrue(ExportFormat.bestQuality.matches(URL(fileURLWithPath: "/x/a.PNG")))
+        XCTAssertFalse(ExportFormat.bestQuality.matches(URL(fileURLWithPath: "/x/a.jpg")))
+        XCTAssertEqual(ExportFormat.bestQuality.fileExtension, "png")
+        XCTAssertNil(ExportFormat.bestQuality.quality)
+        XCTAssertEqual(ExportFormat.allCases.count, 3)
     }
 
     func testWritingADayUsesTheChosenFormatAndAddsATranscript() throws {
@@ -649,5 +668,9 @@ final class ExportTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: efficient.path).sorted(), ["093005.heic", "093105-d1.heic", "transcript.md"])
         let transcript = try String(contentsOf: efficient.appendingPathComponent("transcript.md"), encoding: .utf8)
         XCTAssertTrue(transcript.contains("> Hello"))
+
+        let lossless = root.appendingPathComponent("lossless")
+        try Exporter.writeDay(frames: frames, texts: [:], title: "Day", root: root, format: .bestQuality, into: lossless)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: lossless.path).sorted(), ["093005.png", "093105-d1.png", "transcript.md"])
     }
 }

@@ -36,7 +36,7 @@ enum Transcript {
 }
 
 enum ExportFormat: String, CaseIterable {
-    case mostCompatible, highEfficiency
+    case mostCompatible, highEfficiency, bestQuality
 
     static let preferenceKey = "exportFormat"
 
@@ -49,16 +49,42 @@ enum ExportFormat: String, CaseIterable {
         switch self {
         case .mostCompatible: "Most Compatible (JPEG)"
         case .highEfficiency: "High Efficiency (HEIC)"
+        case .bestQuality: "Best Quality (PNG)"
         }
     }
 
-    var fileExtension: String { self == .mostCompatible ? "jpg" : "heic" }
-    var type: UTType { self == .mostCompatible ? .jpeg : .heic }
-    var quality: Double { self == .mostCompatible ? 0.9 : 0.8 }
+    var fileExtension: String {
+        switch self {
+        case .mostCompatible: "jpg"
+        case .highEfficiency: "heic"
+        case .bestQuality: "png"
+        }
+    }
+
+    var type: UTType {
+        switch self {
+        case .mostCompatible: .jpeg
+        case .highEfficiency: .heic
+        case .bestQuality: .png
+        }
+    }
+
+    /// Nil for PNG, which is lossless.
+    var quality: Double? {
+        switch self {
+        case .mostCompatible: 0.9
+        case .highEfficiency: 0.8
+        case .bestQuality: nil
+        }
+    }
 
     func matches(_ url: URL) -> Bool {
         let ext = url.pathExtension.lowercased()
-        return self == .mostCompatible ? (ext == "jpg" || ext == "jpeg") : ext == "heic"
+        switch self {
+        case .mostCompatible: return ext == "jpg" || ext == "jpeg"
+        case .highEfficiency: return ext == "heic"
+        case .bestQuality: return ext == "png"
+        }
     }
 }
 
@@ -75,7 +101,8 @@ enum ImageEncoding {
               let target = CGImageDestinationCreateWithURL(destination as CFURL, format.type.identifier as CFString, 1, nil) else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        CGImageDestinationAddImage(target, image, [kCGImageDestinationLossyCompressionQuality: format.quality] as CFDictionary)
+        let options = format.quality.map { [kCGImageDestinationLossyCompressionQuality: $0] as CFDictionary }
+        CGImageDestinationAddImage(target, image, options)
         guard CGImageDestinationFinalize(target) else { throw CocoaError(.fileWriteUnknown) }
     }
 }
