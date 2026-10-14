@@ -11,6 +11,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: swift test
       - run: ./Scripts/build-app.sh
+        env:
+          SIGN_IDENTITY: "-"
       - run: ditto -c -k --keepParent build/TimeScreen.app TimeScreen-${{ github.ref_name }}.zip
       - run: gh release create "${{ github.ref_name }}" "TimeScreen-${{ github.ref_name }}.zip" --generate-notes --title "TimeScreen ${{ github.ref_name }}"
         env:

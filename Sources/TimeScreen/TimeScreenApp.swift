@@ -17,7 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             Task {
                 await WelcomeController.shared.showIfFirstRun()
-                if !recorder.hasPermission, UserDefaults.standard.bool(forKey: Prefs.welcomeShown) { recorder.requestPermission() }
+                if !recorder.hasPermission, UserDefaults.standard.bool(forKey: Prefs.welcomeShown),
+                   ProcessInfo.processInfo.environment["TIMESCREEN_DATA_DIR"] == nil { recorder.requestPermission() }
             }
         }
     }

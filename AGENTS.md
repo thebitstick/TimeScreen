@@ -33,6 +33,11 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 
 ## Commands
 
+Day to day, run `Scripts/dev.sh`: it quits the running app, rebuilds, installs into `~/Applications` and launches it.
+Local builds are signed with the first "Apple Development" identity in the keychain (no name is stored in the repo), which
+keeps the Screen Recording permission across rebuilds; ad-hoc builds (CI, releases, `SIGN_IDENTITY=-`) lose it every time.
+A test copy with another bundle id or `TIMESCREEN_DATA_DIR` does not ask for the permission on launch.
+
 ```
 swift test                       # unit tests
 ./Scripts/build-app.sh           # build/TimeScreen.app
@@ -98,7 +103,8 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
    release; there is no `CHANGELOG.md`.
 - Sparkle is embedded by `Scripts/build-app.sh`, which signs nested code first. The app needs the
   `disable-library-validation` entitlement (`Resources/TimeScreen.entitlements`) because release builds are ad-hoc signed.
-- Updates re-prompt for Screen Recording whenever the signing identity differs between builds.
+- Updates re-prompt for Screen Recording whenever the signing identity differs between builds, including when Sparkle
+  replaces a locally signed copy with a release build.
 
 ## Working agreements
 
