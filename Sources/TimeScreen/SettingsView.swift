@@ -242,6 +242,7 @@ private struct StoragePane: View {
                 Text("Forever").tag(0)
             }
             .fixedSize()
+            Note("Starred screenshots are never deleted by this or by the size limit.")
             .padding(.vertical, 5)
             LabeledContent("Size limit:") {
                 VStack(alignment: .leading, spacing: 4) {
@@ -300,6 +301,13 @@ private struct ShortcutsPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ShortcutRecorder(hotkey: .pause)
                     Note("Pauses or resumes recording from any app, with a short sound so you know which. Not set by default.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Star Moment:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    ShortcutRecorder(hotkey: .star)
+                    Note("Stars the newest screenshot from any app so it is kept forever. Plays a chime. Not set by default.")
                 }
             }
             .padding(.vertical, 5)

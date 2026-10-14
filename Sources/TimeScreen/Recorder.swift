@@ -85,6 +85,14 @@ final class Recorder: ObservableObject {
         await refreshToday()
     }
 
+    /// Stars the newest screenshot, which is at most a capture interval old (captures resume as soon as you touch the keyboard).
+    func starLatestFrame() async -> Bool {
+        guard let frame = try? await db.latestFrame(), Date().timeIntervalSince(frame.date) < 120,
+              (try? await db.setStarred(true, id: frame.id)) != nil else { return false }
+        revision += 1
+        return true
+    }
+
     func setTimelineOpen(_ open: Bool) {
         if open { suspensions.insert("timeline") } else { suspensions.remove("timeline") }
     }

@@ -49,6 +49,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Orphan cleanup and the new keyboard navigation logic (previous and next app switch, the day the timeline opens on) are
   unit-tested; the orphan test caught a path-comparison bug that would have deleted indexed files. The Text panel was seen
   on fictional data, including restoring capitalization for frames stored with lowercase words.
+- Starred moments: the rules that protect starred frames (retention, the size limit, compaction) are unit-tested, and the star
+  button, badges and gold marks were seen on fictional data. The Star Moment shortcut and the starred list were not used.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested

@@ -118,6 +118,9 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   FTS expression and the highlight terms, so excluded words are never highlighted. Odd input must never make a search throw.
 - **Zoom** (`PreviewZoom`): the zoomed image is clipped to its unscaled frame; when zoomed a drag pans (using global coordinates, since
   the view moves under the finger) and ⇧-drag selects. `-previewZoom 2.5` sets it at launch.
+- **Starred frames** (`frames.starred`) are skipped by `prune`, `oldestFrames` (so the size limit) and `framesToCompact`; only an
+  explicit delete or Delete All removes them. The global Star Moment shortcut (slot 3) and the menu item star the newest frame, which
+  is at most one capture interval old.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are

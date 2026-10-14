@@ -24,6 +24,9 @@ enum Prefs {
     static let pauseHotkeyCode = "pauseHotkeyCode"
     static let pauseHotkeyMods = "pauseHotkeyMods"
     static let pauseHotkeyLabel = "pauseHotkeyLabel"
+    static let starHotkeyCode = "starHotkeyCode"
+    static let starHotkeyMods = "starHotkeyMods"
+    static let starHotkeyLabel = "starHotkeyLabel"
 
     static let defaultExcluded = """
         com.1password.1password
@@ -63,6 +66,9 @@ enum Prefs {
             pauseHotkeyCode: 0,
             pauseHotkeyMods: 0,
             pauseHotkeyLabel: "",
+            starHotkeyCode: 0,
+            starHotkeyMods: 0,
+            starHotkeyLabel: "",
         ])
     }
 

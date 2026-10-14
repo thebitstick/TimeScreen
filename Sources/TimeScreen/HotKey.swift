@@ -13,6 +13,8 @@ struct HotKeySlot {
 
     static let timeline = HotKeySlot(id: 1, codeKey: Prefs.hotkeyCode, modsKey: Prefs.hotkeyMods, labelKey: Prefs.hotkeyLabel,
                                      defaultCode: 17, defaultMods: 2304, defaultLabel: "T")
+    static let star = HotKeySlot(id: 3, codeKey: Prefs.starHotkeyCode, modsKey: Prefs.starHotkeyMods, labelKey: Prefs.starHotkeyLabel,
+                                 defaultCode: 0, defaultMods: 0, defaultLabel: "")
     static let pause = HotKeySlot(id: 2, codeKey: Prefs.pauseHotkeyCode, modsKey: Prefs.pauseHotkeyMods, labelKey: Prefs.pauseHotkeyLabel,
                                   defaultCode: 0, defaultMods: 0, defaultLabel: "")
 }
@@ -21,6 +23,7 @@ struct HotKeySlot {
 final class HotKey {
     static let timeline = HotKey(.timeline)
     static let pause = HotKey(.pause)
+    static let star = HotKey(.star)
 
     private static var registry: [UInt32: HotKey] = [:]
     private static var handlerInstalled = false

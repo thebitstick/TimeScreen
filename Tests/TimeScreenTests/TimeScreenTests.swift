@@ -944,3 +944,70 @@ final class PreviewZoomTests: XCTestCase {
         XCTAssertEqual(zoom.scale, 1)
     }
 }
+
+final class StarredFramesTests: XCTestCase {
+    private func makeDatabase() throws -> Database {
+        try Database(path: NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite")
+    }
+
+    func testStarringIsStoredAndListedNewestFirst() async throws {
+        let db = try makeDatabase()
+        let now = Date()
+        let a = try await db.insert(date: now.addingTimeInterval(-30), app: "A", title: "one", path: "a.jpg", text: "alpha")
+        _ = try await db.insert(date: now.addingTimeInterval(-20), app: "B", title: "two", path: "b.jpg", text: "beta")
+        let c = try await db.insert(date: now.addingTimeInterval(-10), app: "C", title: "three", path: "c.jpg", text: "gamma")
+        try await db.setStarred(true, id: a)
+        try await db.setStarred(true, id: c)
+        let starred = try await db.starredFrames()
+        XCTAssertEqual(starred.map(\.path), ["c.jpg", "a.jpg"])
+        XCTAssertTrue(starred.allSatisfy(\.starred))
+        let all = try await db.frames(on: now)
+        XCTAssertEqual(all.map(\.starred), [true, false, true])
+        try await db.setStarred(false, id: a)
+        let remaining = try await db.starredFrames()
+        XCTAssertEqual(remaining.map(\.path), ["c.jpg"])
+        let latest = try await db.latestFrame()
+        XCTAssertEqual(latest?.path, "c.jpg")
+        let hit = try await db.search("gamma")
+        XCTAssertEqual(hit.first?.frame.starred, true)
+    }
+
+    func testStarredFramesSurviveRetentionTheSizeLimitAndCompaction() async throws {
+        let db = try makeDatabase()
+        let old = Date().addingTimeInterval(-10 * 86_400)
+        let keep = try await db.insert(date: old, app: "A", title: "", path: "keep.jpg", text: "keep me")
+        _ = try await db.insert(date: old.addingTimeInterval(1), app: "A", title: "", path: "drop.jpg", text: "drop me")
+        try await db.setStarred(true, id: keep)
+
+        let oldest = try await db.oldestFrames(limit: 10)
+        XCTAssertEqual(oldest.map(\.path), ["drop.jpg"])
+        let compactable = try await db.framesToCompact(before: Date(), limit: 10)
+        XCTAssertEqual(compactable.map(\.path), ["drop.jpg"])
+
+        let removed = try await db.prune(before: Date().addingTimeInterval(-86_400))
+        XCTAssertEqual(removed, ["drop.jpg"])
+        let left = try await db.frames(on: old)
+        XCTAssertEqual(left.map(\.path), ["keep.jpg"])
+        let hits = try await db.search("keep")
+        XCTAssertEqual(hits.count, 1)
+        let boxesGone = try await db.search("drop")
+        XCTAssertTrue(boxesGone.isEmpty)
+    }
+
+    func testTheSizeLimitNeverDeletesStarredFiles() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-star-\(UUID().uuidString)")
+        let frames = dir.appendingPathComponent("frames/day")
+        try FileManager.default.createDirectory(at: frames, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        let db = try Database(path: dir.appendingPathComponent("index.sqlite").path)
+        for n in 1...6 {
+            try Data(repeating: 1, count: 64 * 1024).write(to: frames.appendingPathComponent("f\(n).heic"))
+            let id = try await db.insert(date: Date().addingTimeInterval(Double(n)), app: "A", title: "", path: "day/f\(n).heic", text: "x")
+            if n <= 2 { try await db.setStarred(true, id: id) }
+        }
+        let removed = await Storage.enforce(cap: 1, root: dir.appendingPathComponent("frames"), db: db)
+        XCTAssertTrue(removed)
+        let files = try FileManager.default.contentsOfDirectory(atPath: frames.path).sorted()
+        XCTAssertEqual(files, ["f1.heic", "f2.heic"])
+    }
+}

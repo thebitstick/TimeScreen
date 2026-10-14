@@ -21,8 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSSound(named: recorder.isRecording ? "Tink" : "Pop")?.play()
             }
         }
+        HotKey.star.onPress = {
+            Task { @MainActor in
+                let starred = await Recorder.shared.starLatestFrame()
+                NSSound(named: starred ? "Glass" : "Basso")?.play()
+            }
+        }
         HotKey.timeline.registerFromPrefs()
         HotKey.pause.registerFromPrefs()
+        HotKey.star.registerFromPrefs()
         ScrollTrigger.shared.start()
         _ = Updater.shared
         if CommandLine.arguments.contains("--settings") {
@@ -97,6 +104,9 @@ struct MenuContent: View {
             Button("Last 5 Minutes…") { confirmDeleteRecent(minutes: 5) }
             Button("Last 15 Minutes…") { confirmDeleteRecent(minutes: 15) }
             Button("Last Hour…") { confirmDeleteRecent(minutes: 60) }
+        }
+        Button("Star This Moment") {
+            Task { @MainActor in NSSound(named: await recorder.starLatestFrame() ? "Glass" : "Basso")?.play() }
         }
         if let version = updater.availableVersion {
             Button("Update Available: \(version)…") { updater.checkForUpdates() }

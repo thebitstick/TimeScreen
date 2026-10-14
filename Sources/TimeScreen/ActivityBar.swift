@@ -91,6 +91,10 @@ struct ActivityBar: View {
                     .offset(x: left)
                     .help(run.app)
                 }
+                ForEach(frames.filter(\.starred)) { star in
+                    Capsule().fill(.yellow).frame(width: 3, height: 9)
+                        .offset(x: x(star.date.timeIntervalSince1970) - 1.5, y: -height / 2 + 1)
+                }
                 if let frame = frames.first(where: { $0.id == selectedID }) {
                     Capsule().fill(.white).frame(width: 3, height: height + 8)
                         .shadow(color: .black.opacity(0.6), radius: 2)

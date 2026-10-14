@@ -35,6 +35,8 @@ struct TimelineWindow: View {
     @State private var excludeRequest: ExcludeRequest?
     @State private var didChooseInitialDay = false
     @State private var zoom = PreviewZoom()
+    @State private var showStarred = false
+    @State private var starredFrames: [Frame] = []
     @State private var previewSize = CGSize(width: 1, height: 1)
     @State private var panStart: CGSize?
     @State private var pinchStart: CGFloat?
@@ -124,6 +126,11 @@ struct TimelineWindow: View {
             zoom.reset()
             return .handled
         }
+        .onKeyPress(characters: ["s"], phases: .down) { press in
+            guard press.modifiers.isEmpty else { return .ignored }
+            toggleStar()
+            return .handled
+        }
         .onKeyPress(characters: ["t"], phases: .down) { press in
             guard press.modifiers.isEmpty else { return .ignored }
             showText.toggle()
@@ -197,6 +204,7 @@ struct TimelineWindow: View {
             if displays.count > 1 { displayMenu }
             appMenu
             jumpField
+            starredButton
 
             Spacer()
 
@@ -243,6 +251,50 @@ struct TimelineWindow: View {
     }
 
     static func displayName(_ index: Int) -> String { index == 0 ? "Main Display" : "Display \(index + 1)" }
+
+    private var starredButton: some View {
+        Button {
+            Task {
+                starredFrames = (try? await recorder.db.starredFrames()) ?? []
+                showStarred = true
+            }
+        } label: { Image(systemName: "star") }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .help("Starred screenshots")
+        .popover(isPresented: $showStarred, arrowEdge: .bottom) {
+            if starredFrames.isEmpty {
+                Text("Star a screenshot (S) to keep it forever.\nStarred ones are never deleted by retention or the size limit.")
+                    .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(20)
+            } else {
+                List(starredFrames) { frame in
+                    Button {
+                        showStarred = false
+                        jump(to: frame)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(frame.date.formatted(date: .abbreviated, time: .standard)).font(.caption).foregroundStyle(.secondary)
+                            Text(frame.title.isEmpty ? frame.app : "\(frame.app) — \(frame.title)").lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .frame(width: 340, height: min(CGFloat(starredFrames.count) * 52 + 16, 360))
+            }
+        }
+    }
+
+    private func toggleStar() {
+        guard let frame = current, let i = loadedFrames.firstIndex(where: { $0.id == frame.id }) else { return }
+        let starred = !frame.starred
+        loadedFrames[i].starred = starred
+        Task {
+            try? await recorder.db.setStarred(starred, id: frame.id)
+            flash(starred ? "Starred: kept forever" : "Unstarred")
+        }
+    }
 
     private var jumpField: some View {
         HStack(spacing: 6) {
@@ -551,6 +603,9 @@ struct TimelineWindow: View {
                 if !frame.title.isEmpty { Text("— \(frame.title)").lineLimit(1).foregroundStyle(.secondary) }
                 Spacer()
                 if let statusMessage { Text(statusMessage).foregroundStyle(.green) }
+                Button(action: toggleStar) { Image(systemName: frame.starred ? "star.fill" : "star") }
+                    .buttonStyle(.plain).foregroundStyle(frame.starred ? Color.yellow : .secondary)
+                    .help("Star this screenshot to keep it forever (S)")
                 Button { showText.toggle() } label: { Image(systemName: "text.alignleft") }
                     .buttonStyle(.plain).foregroundStyle(showText ? Color.accentColor : .secondary)
                     .help("Show the text recognized in this screenshot (T)")
@@ -845,6 +900,9 @@ private struct FilmstripCell: View {
             .frame(width: cellWidth, height: cellHeight)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor, lineWidth: selected ? 3 : 0))
+            .overlay(alignment: .topTrailing) {
+                if frame.starred { Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow).padding(5) }
+            }
             .overlay(alignment: .bottomLeading) {
                 if let icon = AppIcons.shared.icon(for: frame.app) {
                     Image(nsImage: icon).resizable().frame(width: 18, height: 18).padding(4)
