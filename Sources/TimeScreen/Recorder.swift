@@ -22,6 +22,7 @@ final class Recorder: ObservableObject {
     private var maintenance: Task<Void, Never>?
     private var resumeTimer: Task<Void, Never>?
     private var lastSignatures: [Int: [UInt8]] = [:]
+    private var recognitionFailures = 0
     private var suspensions = Set<String>()
     private var lastPrune = Date.distantPast
     private var lastCapCheck = Date.distantPast
@@ -213,7 +214,7 @@ final class Recorder: ObservableObject {
                 let signature = await Task.detached { Signature.make(image) }.value
                 if let last = lastSignatures[target.index], Signature.isDuplicate(last, signature) { continue }
 
-                try await Task.detached(priority: .utility) {
+                let recognitionFailed = try await Task.detached(priority: .utility) {
                     let (data, ext) = try Capturer.encode(image)
                     let relative = Recorder.relativePath(for: now, display: target.index, ext: ext)
                     let url = root.appendingPathComponent(relative)
@@ -222,12 +223,14 @@ final class Recorder: ObservableObject {
                     let ocr = ocrEnabled ? OCR.recognize(image) : OCRResult()
                     try await db.insert(date: now, app: app, title: title, path: relative, text: ocr.text,
                                         boxes: WordBox.pack(ocr.words), display: target.index, bundle: bundleID)
+                    return ocr.failure != nil
                 }.value
+                recognitionFailures = recognitionFailed ? recognitionFailures + 1 : 0
                 lastSignatures[target.index] = signature
             }
 
             lastCapture = now
-            lastError = nil
+            lastError = recognitionFailures >= 3 ? "Text recognition stopped working, so new screenshots can't be searched. Quit and reopen TimeScreen." : nil
             revision += 1
             await refreshToday()
         } catch {

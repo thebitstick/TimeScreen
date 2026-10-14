@@ -56,6 +56,7 @@ enum Capturer {
 struct OCRResult {
     var text = ""
     var words: [WordBox] = []
+    var failure: Error?
 }
 
 enum OCR {
@@ -63,7 +64,16 @@ enum OCR {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
-        guard (try? VNImageRequestHandler(cgImage: image).perform([request])) != nil else { return OCRResult() }
+        do {
+            do {
+                try VNImageRequestHandler(cgImage: image).perform([request])
+            } catch {
+                try VNImageRequestHandler(cgImage: image).perform([request])
+            }
+        } catch {
+            NSLog("TimeScreen: text recognition failed: %@", String(describing: error))
+            return OCRResult(failure: error)
+        }
 
         var lines: [String] = []
         var words: [WordBox] = []
