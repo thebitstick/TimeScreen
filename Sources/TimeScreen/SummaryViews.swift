@@ -116,31 +116,28 @@ struct DayRecapView: View {
     private var window: SummaryWindow { .day(containing: day) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recap of \(day.formatted(.dateTime.weekday(.wide).month().day()))").font(.headline)
-            if let message = summarizer.availability.message {
-                Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            SummaryCard(title: "The day", window: window, record: dayRecord, pending: pending, summarizer: summarizer)
-            if !hours.isEmpty {
-                Text("Hour by hour").font(.subheadline.bold())
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(hours, id: \.key) { record in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(SummaryPrompt.timeLabel(record.start, record.end)).font(.caption).foregroundStyle(.secondary)
-                                Text(record.text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Recap of \(day.formatted(.dateTime.weekday(.wide).month().day()))").font(.headline)
+                if let message = summarizer.availability.message {
+                    Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                SummaryCard(title: "The day", window: window, record: dayRecord, pending: pending, summarizer: summarizer)
+                if !hours.isEmpty {
+                    Text("Hour by hour").font(.subheadline.bold())
+                    ForEach(hours, id: \.key) { record in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(SummaryPrompt.timeLabel(record.start, record.end)).font(.caption).foregroundStyle(.secondary)
+                            Text(record.text).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxHeight: 260)
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
-        .frame(width: 380)
+        .frame(width: 400, height: 480)
         .task(id: summarizer.revision) { await load() }
     }
 

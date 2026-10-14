@@ -67,9 +67,9 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
   the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
 - Home and End in the timeline: the author's keyboard has neither key, so only ⌘← and ⌘→, which do the same, have been tried.
-- The new Summary tab, the day recap popover and the Summaries settings on screen: the display was off when they were built, so
-  they were not seen, and the automatic mode and the model on a Mac other than the author's have not been run. Summary quality
-  is plausible but not guaranteed: it can mention things that are not on screen.
+- Automatic summaries, and the model on a Mac other than the author's. Summary quality is plausible but not guaranteed: it can
+  mention things that are not on screen. The Summary tab, the day recap and the Summaries settings were seen on fictional data (the
+  recap's list was found cut off and fixed), but the author has not yet used them on their own history.
 - Clicking through the export menu items and saving real files from them.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their

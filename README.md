@@ -5,7 +5,7 @@
 <h1 align="center">TimeScreen</h1>
 
 <p align="center">
-  A searchable history of your screen for macOS, like Rewind, with summaries written on your Mac. Everything stays on your Mac.
+  A searchable history of your screen for macOS, like Rewind, with recaps written by Apple's on-device model. Everything stays on your Mac.
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ language model (macOS 26 or later with Apple Intelligence). Nothing is ever sent
 | **Search** | Search everything you've seen, filtered by date range or app. Words match from the start, `"quotes"` match an exact phrase and `-word` leaves one out. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
 | **Starred moments** | Press **S** (or use the star) to keep a screenshot forever. Starred ones are never deleted by retention or the size limit, show up as gold marks on the timeline, and are listed under the star in the top bar. A global **Star Moment** shortcut and a menu bar item star whatever is on screen now |
 | **Zoom** | Pinch, or ⌘+ ⌘− ⌘0, to zoom into a screenshot. Drag to move around, hold ⇧ and drag to select text |
-| **Summaries** | A **Summary** tab beside the screenshot writes a short recap of this screenshot, the 15 minutes around it, the hour, the day, or one app's day. The sparkles button in the top bar recaps the whole day hour by hour. Written by Apple's on-device model, saved on your Mac, and deleted along with the screenshots they cover |
+| **Summaries** | Short recaps of a screenshot, a 15-minute stretch, an hour, a day or one app's day, written by Apple's on-device model (macOS 26+ with Apple Intelligence). See [Summaries](#summaries) |
 | **Text panel** | Press **T** to show the text recognized in the current screenshot beside it, with your search words highlighted |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
 | **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
@@ -45,6 +45,36 @@ language model (macOS 26 or later with Apple Intelligence). Nothing is ever sent
 <p align="center">
   <img src="Resources/screenshot-search.png" width="780" alt="Searching for a word">
 </p>
+
+## Summaries
+
+<p align="center">
+  <img src="Resources/screenshot-summary.png" width="560" alt="The Summary tab">
+  <img src="Resources/screenshot-recap.png" width="300" alt="The day recap">
+</p>
+
+Open the **Summary** tab beside a screenshot (press **T**, then choose Summary) to write a recap of:
+
+| | |
+|---|---|
+| **This screenshot** | One request, on demand |
+| **Around this time** | The 15-minute stretch it belongs to |
+| **This hour** | Built from that hour's 15-minute stretches |
+| **This day** | Built from the day's hours |
+| **An app's day** | Everything you did in that app that day |
+
+The sparkles button in the top bar opens a **day recap**, hour by hour. Summaries are written on this Mac by Apple's on-device
+language model from the text TimeScreen already read, never from the image, and they are saved in your index and deleted along with
+the screenshots they cover.
+
+How it works, and its limits:
+
+- The model reads about 8,000 tokens at a time (roughly 20,000 characters), so a stretch of many screenshots is boiled down first:
+  lines that repeat on most of them, like menu bars and sidebars, are dropped. Each summary takes a few seconds, and a whole day takes a
+  couple of minutes, which is why larger summaries are built from smaller ones and kept.
+- Settings ▸ Summaries can write finished 15-minute stretches automatically, but only while the Mac is idle and plugged in. It is off by
+  default because it uses energy.
+- Summaries can be wrong, or thin when a screen has little text. They need macOS 26 or later with Apple Intelligence turned on.
 
 ## Install
 
@@ -59,7 +89,8 @@ later. A welcome window walks you through allowing **Screen Recording**.
 | Open the timeline | **⌥⌘T** (changeable, or removable, in Settings ▸ Shortcuts), the menu bar icon, or hold **⌘⇧** and scroll |
 | Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **⌘← ⌘→** (or **Home** and **End**) to the first and last frame |
 | Search | **⌘F** or **/** focuses the search box. **↑ ↓** step through results and **Return** hands focus back |
-| Text | **T** shows or hides the text panel |
+| Text and summaries | **T** shows or hides the side panel, which has a Text tab and a Summary tab |
+| Zoom | Pinch, or **⌘+ ⌘− ⌘0**. Drag to move, hold **⇧** and drag to select text |
 | Star | **S** stars or unstars the current screenshot |
 | Close | **Esc** |
 | Pause | Menu bar ▸ Pause Recording, or Pause For 15 minutes, 1 hour or 8 hours. You can also set a global **Pause / Resume** shortcut in Settings ▸ Shortcuts, which plays a short sound |
@@ -90,6 +121,8 @@ icon, which macOS needs for it to bring those windows to the front.
   ad hoc rather than with a developer certificate.
 - **The timeline doesn't open:** check the shortcut in Settings ▸ Shortcuts (another app may use it) and, if you turned on the
   timeline lock, that you can authenticate.
+- **Summaries are slow:** the model writes one at a time, a few seconds each, and a day is built from dozens. Progress shows on the card, and
+  you can cancel.
 - **Summaries say the model isn't available:** they need macOS 26 or later with Apple Intelligence turned on in System Settings, and the
   model downloaded. Settings ▸ Summaries says which of those is missing.
 - **Copy Text isn't shown:** the frame was captured with "Make screen text searchable" turned off.
@@ -98,7 +131,8 @@ icon, which macOS needs for it to bring those windows to the front.
 
 ## Building
 
-Swift 5.9+ and macOS 14+.
+macOS 14+ to run. Building with Xcode 26 (Swift 6.2) or later includes summaries; an older SDK builds the app without them. The release builds use
+Xcode 26.
 
 ```sh
 Scripts/dev.sh              # quit, rebuild, install into ~/Applications and launch
