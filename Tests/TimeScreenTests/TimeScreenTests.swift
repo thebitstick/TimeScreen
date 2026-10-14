@@ -783,3 +783,44 @@ final class TextHighlightTests: XCTestCase {
         XCTAssertTrue(TextHighlight.ranges(in: text, terms: ["zzz"]).isEmpty)
     }
 }
+
+final class DatabaseRecoveryTests: XCTestCase {
+    private func scratch() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-recovery-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return dir
+    }
+
+    func testAHealthyIndexOpensWithoutANotice() async throws {
+        let support = try scratch()
+        let first = DatabaseRecovery.open(support: support)
+        _ = try await first.database.insert(date: Date(), app: "A", title: "", path: "a.jpg", text: "hello")
+        XCTAssertNil(first.notice)
+        let again = DatabaseRecovery.open(support: support)
+        XCTAssertNil(again.notice)
+        let frames = try await again.database.frames(on: Date())
+        XCTAssertEqual(frames.map(\.path), ["a.jpg"])
+    }
+
+    func testADamagedIndexIsMovedAsideAndReplaced() async throws {
+        let support = try scratch()
+        try Data("this is not a database at all, just text".utf8).write(to: support.appendingPathComponent("index.sqlite"))
+        let store = DatabaseRecovery.open(support: support)
+        XCTAssertNotNil(store.notice)
+        let names = try FileManager.default.contentsOfDirectory(atPath: support.path)
+        XCTAssertTrue(names.contains { $0.hasPrefix("index.damaged-") })
+        _ = try await store.database.insert(date: Date(), app: "A", title: "", path: "b.jpg", text: "fresh")
+        let hits = try await store.database.search("fresh")
+        XCTAssertEqual(hits.count, 1)
+    }
+
+    func testAnUnwritableFolderFallsBackToATemporaryOne() async throws {
+        let blocker = try scratch().appendingPathComponent("file")
+        try Data("x".utf8).write(to: blocker)
+        let store = DatabaseRecovery.open(support: blocker.appendingPathComponent("TimeScreen"))
+        XCTAssertNotNil(store.notice)
+        _ = try await store.database.insert(date: Date(), app: "A", title: "", path: "c.jpg", text: "still works")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.framesRoot.path))
+    }
+}

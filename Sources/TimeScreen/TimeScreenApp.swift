@@ -4,6 +4,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
         let recorder = Recorder.shared
         recorder.start()
+        if let notice = recorder.startupNotice {
+            DockPresence.windowWillOpen()
+            let alert = NSAlert()
+            alert.messageText = "TimeScreen had a problem with its data"
+            alert.informativeText = notice
+            alert.alertStyle = .warning
+            alert.runModal()
+            DockPresence.windowDidFinish()
+        }
         HotKey.timeline.onPress = { TimelineController.shared.toggle() }
         HotKey.pause.onPress = {
             MainActor.assumeIsolated {

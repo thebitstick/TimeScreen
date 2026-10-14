@@ -26,17 +26,16 @@ final class Recorder: ObservableObject {
     private var lastCapCheck = Date.distantPast
     private var lastCompact = Date.distantPast
 
+    let startupNotice: String?
+
     private init() {
         let support = ProcessInfo.processInfo.environment["TIMESCREEN_DATA_DIR"].map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("TimeScreen", isDirectory: true)
-        framesRoot = support.appendingPathComponent("frames", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: framesRoot, withIntermediateDirectories: true)
-            db = try Database(path: support.appendingPathComponent("index.sqlite").path)
-        } catch {
-            fatalError("TimeScreen cannot open its data directory: \(error.localizedDescription)")
-        }
+        let store = DatabaseRecovery.open(support: support)
+        framesRoot = store.framesRoot
+        db = store.database
+        startupNotice = store.notice
     }
 
     func start() {
