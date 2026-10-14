@@ -73,7 +73,7 @@ enum OCR {
             lines.append(line)
             line.enumerateSubstrings(in: line.startIndex..<line.endIndex, options: .byWords) { word, range, _, _ in
                 guard let word, let box = try? candidate.boundingBox(for: range)?.boundingBox else { return }
-                words.append(WordBox(t: word.lowercased(), x: Float(box.minX), y: Float(box.minY),
+                words.append(WordBox(t: word, x: Float(box.minX), y: Float(box.minY),
                                      w: Float(box.width), h: Float(box.height)))
             }
         }

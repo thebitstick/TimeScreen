@@ -4,8 +4,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
         let recorder = Recorder.shared
         recorder.start()
-        HotKey.shared.onPress = { TimelineController.shared.toggle() }
-        HotKey.shared.registerFromPrefs()
+        HotKey.timeline.onPress = { TimelineController.shared.toggle() }
+        HotKey.pause.onPress = {
+            MainActor.assumeIsolated {
+                let recorder = Recorder.shared
+                recorder.setRecording(!recorder.isRecording)
+                NSSound(named: recorder.isRecording ? "Tink" : "Pop")?.play()
+            }
+        }
+        HotKey.timeline.registerFromPrefs()
+        HotKey.pause.registerFromPrefs()
         ScrollTrigger.shared.start()
         _ = Updater.shared
         if CommandLine.arguments.contains("--settings") {

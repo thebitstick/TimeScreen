@@ -20,6 +20,7 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `TimelineController.swift` | full-screen overlay window, scroll and Esc monitors, Carbon global hotkey, shortcut recorder |
 | `TimelineWindow.swift`, `ActivityBar.swift`, `AppIcons.swift` | timeline UI: preview, filmstrip, colored activity bar, calendar, app icons |
 | `JumpTime.swift` | parses the timeline's jump-to-time box (ambiguous hours return both am and pm) |
+| `HotKey.swift` | the global shortcuts and the recorder control in Settings |
 | `Export.swift` | saving a frame as an image or text, and exporting a day or search results with a Markdown transcript |
 | `SkipReason.swift` | why capture is skipped (private window, power, disk), plus the battery and free-space readings |
 | `MenuBarState.swift` | which SF Symbol and description the menu bar icon shows |
@@ -101,6 +102,13 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   `exportFormat`): Most Compatible is JPEG, High Efficiency is HEIC, Best Quality is PNG (lossless, but the stored frame is already HEIC, so it
   cannot restore detail), and a stored file already in the chosen format is copied
   without re-encoding (`ImageEncoding`). File work (`ImageEncoding`, `writeDay`) is `nonisolated` and runs off the main thread.
+- **Hotkeys** (`HotKey.swift`): Carbon hot keys keyed by slot id (`timeline` = 1, `pause` = 2), each with its own pref keys, dispatched
+  from one event handler. The pause shortcut is unset by default and plays Tink or Pop so you know which state you are in.
+- **Orphan cleanup** (`Storage.removeOrphans`, at launch): files with no index row and older than a minute are deleted. It refuses
+  to delete when the index is empty or when most files look orphaned, and it resolves symlinks before comparing paths (a
+  `/var` versus `/private/var` mismatch made an early version delete indexed files).
+- **Word case:** boxes now store words in their original case; older frames have lowercase boxes, so `WordBox.recased`
+  restores case from the indexed text when a frame is loaded. The Text panel and Copy Text use the indexed text.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are

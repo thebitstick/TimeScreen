@@ -214,6 +214,20 @@ final class WordBoxTests: XCTestCase {
         XCTAssertEqual(WordBox.text(of: []), "")
     }
 
+    func testRecasingRestoresTheOriginalCaseFromTheIndexedText() {
+        let lowercase = ["hello", "world", "foo"].map { WordBox(t: $0, x: 0, y: 0, w: 1, h: 1) }
+        let recased = WordBox.recased(lowercase, from: "Hello World,\nFoo")
+        XCTAssertEqual(recased.map(\.t), ["Hello", "World", "Foo"])
+        XCTAssertEqual(WordBox.recased(lowercase, from: "Hello World").map(\.t), ["hello", "world", "foo"])
+        XCTAssertEqual(WordBox.recased(lowercase, from: "Hello There Foo").map(\.t), ["Hello", "world", "Foo"])
+        XCTAssertTrue(WordBox.recased([], from: "").isEmpty)
+    }
+
+    func testMatchingIgnoresTheCaseOfStoredWords() {
+        let boxes = [WordBox(t: "Anime", x: 0, y: 0, w: 1, h: 1), WordBox(t: "Folder", x: 0, y: 0, w: 1, h: 1)]
+        XCTAssertEqual(WordBox.matches(boxes, terms: ["anim"]).map(\.t), ["Anime"])
+    }
+
     func testMatches() {
         let boxes = [WordBox(t: "anime", x: 0, y: 0, w: 1, h: 1), WordBox(t: "folder", x: 0, y: 0, w: 1, h: 1)]
         XCTAssertEqual(WordBox.matches(boxes, terms: ["anim"]).map(\.t), ["anime"])
@@ -672,5 +686,100 @@ final class ExportTests: XCTestCase {
         let lossless = root.appendingPathComponent("lossless")
         try Exporter.writeDay(frames: frames, texts: [:], title: "Day", root: root, format: .bestQuality, into: lossless)
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: lossless.path).sorted(), ["093005.png", "093105-d1.png", "transcript.md"])
+    }
+}
+
+final class ActivityNavigationTests: XCTestCase {
+    private let day = { (offset: Int) in Calendar.current.date(byAdding: .day, value: offset, to: Calendar.current.startOfDay(for: Date()))! }
+
+    func testTheTimelineOpensOnTodayUnlessTodayIsEmpty() {
+        let today = day(0)
+        XCTAssertEqual(Activity.initialDay(today: today, daysWithFrames: [today, day(-1)]), today)
+        XCTAssertEqual(Activity.initialDay(today: today, daysWithFrames: [day(-3), day(-1), day(-2)]), day(-1))
+        XCTAssertEqual(Activity.initialDay(today: today, daysWithFrames: []), today)
+        XCTAssertEqual(Activity.initialDay(today: today, daysWithFrames: [day(1)]), today)
+    }
+
+    func testJumpingBetweenAppSwitches() {
+        let apps = ["Mail", "Mail", "Mail", "Safari", "Safari", "Notes", "Mail"]
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 0, direction: 1), 3)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 2, direction: 1), 3)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 3, direction: 1), 5)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 5, direction: 1), 6)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 6, direction: 1), 6)
+
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 2, direction: -1), 0)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 0, direction: -1), 0)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 4, direction: -1), 3)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 3, direction: -1), 0)
+        XCTAssertEqual(Activity.switchIndex(apps: apps, from: 6, direction: -1), 5)
+        XCTAssertEqual(Activity.switchIndex(apps: [], from: 0, direction: 1), 0)
+    }
+}
+
+final class OrphanCleanupTests: XCTestCase {
+    func testNothingIsDeletedWhenMostFilesLookOrphaned() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-orphans-\(UUID().uuidString)")
+        let frames = dir.appendingPathComponent("frames/day")
+        try FileManager.default.createDirectory(at: frames, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        let db = try Database(path: dir.appendingPathComponent("index.sqlite").path)
+        for n in 1...5 {
+            let url = frames.appendingPathComponent("f\(n).heic")
+            try Data("x".utf8).write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-3600)], ofItemAtPath: url.path)
+        }
+        try await db.insert(date: Date(), app: "A", title: "", path: "day/f1.heic", text: "x")
+        let removed = await Storage.removeOrphans(root: dir.appendingPathComponent("frames"), db: db)
+        XCTAssertEqual(removed, 0)
+        let empty = try Database(path: dir.appendingPathComponent("empty.sqlite").path)
+        let none = await Storage.removeOrphans(root: dir.appendingPathComponent("frames"), db: empty)
+        XCTAssertEqual(none, 0)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: frames.path).count, 5)
+    }
+
+    func testOnlyOldFilesWithoutAnIndexEntryAreRemoved() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-orphans-\(UUID().uuidString)")
+        let frames = dir.appendingPathComponent("frames")
+        try FileManager.default.createDirectory(at: frames.appendingPathComponent("2026-10-13"), withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        let db = try Database(path: dir.appendingPathComponent("index.sqlite").path)
+
+        func write(_ name: String, ageSeconds: Double) throws {
+            let url = frames.appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("x".utf8).write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-ageSeconds)], ofItemAtPath: url.path)
+        }
+        for n in 1...6 {
+            try write("2026-10-13/known\(n).heic", ageSeconds: 3600)
+            try await db.insert(date: Date().addingTimeInterval(Double(n)), app: "A", title: "", path: "2026-10-13/known\(n).heic", text: "x")
+        }
+        try write("2026-10-13/orphan-old.heic", ageSeconds: 3600)
+        try write("2026-10-13/orphan-new.heic", ageSeconds: 5)
+        try write("2026-10-12/lonely-orphan.heic", ageSeconds: 7200)
+
+        let removed = await Storage.removeOrphans(root: frames, db: db)
+        XCTAssertEqual(removed, 2)
+        let left = try FileManager.default.subpathsOfDirectory(atPath: frames.path).filter { $0.hasSuffix(".heic") }.sorted()
+        XCTAssertEqual(left, (1...6).map { "2026-10-13/known\($0).heic" } + ["2026-10-13/orphan-new.heic"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: frames.appendingPathComponent("2026-10-12").path))
+    }
+}
+
+final class TextHighlightTests: XCTestCase {
+    func testFindsEveryOccurrenceIgnoringCaseAndAccents() {
+        let text = "Budget notes: the budget is tight. Café budgets."
+        let ranges = TextHighlight.ranges(in: text, terms: ["budget"])
+        XCTAssertEqual(ranges.map { String(text[$0]) }, ["Budget", "budget", "budget"])
+        XCTAssertEqual(TextHighlight.ranges(in: text, terms: ["cafe"]).map { String(text[$0]) }, ["Café"])
+    }
+
+    func testSeveralTermsAreSortedAndEmptyTermsIgnored() {
+        let text = "alpha beta alpha"
+        let ranges = TextHighlight.ranges(in: text, terms: ["beta", "", "alpha"])
+        XCTAssertEqual(ranges.map { String(text[$0]) }, ["alpha", "beta", "alpha"])
+        XCTAssertTrue(TextHighlight.ranges(in: text, terms: []).isEmpty)
+        XCTAssertTrue(TextHighlight.ranges(in: text, terms: ["zzz"]).isEmpty)
     }
 }

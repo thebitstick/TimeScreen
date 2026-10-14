@@ -56,4 +56,36 @@ enum Storage {
         }
         return removedAny
     }
+
+    /// Screenshots whose index entry never got written (the app quit between the two) are deleted. Files younger than
+    /// `age` are left alone, since a capture or compaction may be about to record them. If most files look orphaned, something
+    /// else is wrong (a wrong folder, a replaced index), so nothing is deleted.
+    @discardableResult
+    static func removeOrphans(root: URL, db: Database, olderThan age: TimeInterval = 60) async -> Int {
+        guard let known = try? await db.allPaths(), !known.isEmpty else { return 0 }
+        return await Task.detached(priority: .utility) {
+            let fm = FileManager.default
+            let base = root.resolvingSymlinksInPath()
+            let keys: [URLResourceKey] = [.isRegularFileKey, .contentModificationDateKey]
+            guard let enumerator = fm.enumerator(at: base, includingPropertiesForKeys: keys) else { return 0 }
+            var total = 0
+            var orphans: [URL] = []
+            while let url = enumerator.nextObject() as? URL {
+                guard let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true,
+                      url.lastPathComponent != ".DS_Store" else { continue }
+                total += 1
+                let components = url.resolvingSymlinksInPath().pathComponents
+                guard components.starts(with: base.pathComponents),
+                      let modified = values.contentModificationDate, Date().timeIntervalSince(modified) > age else { continue }
+                if !known.contains(components.dropFirst(base.pathComponents.count).joined(separator: "/")) { orphans.append(url) }
+            }
+            guard orphans.count * 2 <= total else { return 0 }
+            for url in orphans { try? fm.removeItem(at: url) }
+            for dir in (try? fm.contentsOfDirectory(at: base, includingPropertiesForKeys: nil)) ?? []
+            where ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? ["x"]).isEmpty {
+                try? fm.removeItem(at: dir)
+            }
+            return orphans.count
+        }.value
+    }
 }

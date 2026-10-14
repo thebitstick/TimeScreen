@@ -283,8 +283,15 @@ private struct ShortcutsPane: View {
         Form {
             LabeledContent("Open Timeline:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    ShortcutRecorder()
+                    ShortcutRecorder(hotkey: .timeline)
                     Note("Works from any app. Click the field, then press the keys you want.")
+                }
+            }
+            .padding(.vertical, 5)
+            LabeledContent("Pause / Resume:") {
+                VStack(alignment: .leading, spacing: 4) {
+                    ShortcutRecorder(hotkey: .pause)
+                    Note("Pauses or resumes recording from any app, with a short sound so you know which. Not set by default.")
                 }
             }
             .padding(.vertical, 5)

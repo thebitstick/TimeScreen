@@ -26,6 +26,29 @@ enum Activity {
         return runs
     }
 
+    static func initialDay(today: Date, daysWithFrames: [Date]) -> Date {
+        if daysWithFrames.contains(today) { return today }
+        return daysWithFrames.filter { $0 < today }.max() ?? today
+    }
+
+    /// Going back from inside a run lands on that run's first frame, so repeated presses walk backwards run by run.
+    static func switchIndex(apps: [String], from index: Int, direction: Int) -> Int {
+        guard apps.indices.contains(index) else { return index }
+        var runStart = index
+        while runStart > 0, apps[runStart - 1] == apps[index] { runStart -= 1 }
+        if direction > 0 {
+            var next = index
+            while next < apps.count - 1, apps[next + 1] == apps[index] { next += 1 }
+            return min(next + 1, apps.count - 1)
+        }
+        if index > runStart { return runStart }
+        guard runStart > 0 else { return index }
+        let previousApp = apps[runStart - 1]
+        var previousStart = runStart - 1
+        while previousStart > 0, apps[previousStart - 1] == previousApp { previousStart -= 1 }
+        return previousStart
+    }
+
     static func nearest(_ frames: [Frame], to t: TimeInterval) -> Int? {
         guard !frames.isEmpty else { return nil }
         var low = 0, high = frames.count - 1

@@ -33,6 +33,10 @@ struct TimelineWindow: View {
     @State private var statusMessage: String?
     @State private var deleteRequest: DeleteRequest?
     @State private var excludeRequest: ExcludeRequest?
+    @State private var didChooseInitialDay = false
+    @State private var fullText = ""
+    @AppStorage("showTextPanel") private var showText = false
+    @FocusState private var searchFocused: Bool
     @FocusState private var focused: Bool
 
     private var displays: [Int] { Set(loadedFrames.map(\.display)).sorted() }
@@ -63,6 +67,10 @@ struct TimelineWindow: View {
                     Divider()
                 }
                 preview
+                if showText {
+                    Divider()
+                    textPanel
+                }
             }
             info
             ActivityBar(frames: dayFrames, selectedID: selectedID, filter: appFilter) { select($0, animated: false) }
@@ -75,8 +83,32 @@ struct TimelineWindow: View {
         .focusable()
         .focusEffectDisabled()
         .focused($focused)
-        .onKeyPress(.leftArrow) { step(-1); return .handled }
-        .onKeyPress(.rightArrow) { step(1); return .handled }
+        .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
+            let direction = press.key == .rightArrow ? 1 : -1
+            if press.modifiers.contains(.option) {
+                jumpToAppSwitch(direction)
+            } else {
+                step(press.modifiers.contains(.shift) ? direction * 10 : direction)
+            }
+            return .handled
+        }
+        .onKeyPress(.home) { jumpToEnd(first: true); return .handled }
+        .onKeyPress(.end) { jumpToEnd(first: false); return .handled }
+        .onKeyPress(characters: ["f"], phases: .down) { press in
+            guard press.modifiers == .command else { return .ignored }
+            searchFocused = true
+            return .handled
+        }
+        .onKeyPress(characters: ["/"], phases: .down) { press in
+            guard press.modifiers.isEmpty else { return .ignored }
+            searchFocused = true
+            return .handled
+        }
+        .onKeyPress(characters: ["t"], phases: .down) { press in
+            guard press.modifiers.isEmpty else { return .ignored }
+            showText.toggle()
+            return .handled
+        }
         .onKeyPress(characters: ["c"], phases: .down) { press in
             guard press.modifiers == .command else { return .ignored }
             copyText()
@@ -152,6 +184,7 @@ struct TimelineWindow: View {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search everything you've seen", text: $query)
                     .textFieldStyle(.plain)
+                    .focused($searchFocused)
                     .onKeyPress(.downArrow) { moveResult(1) }
                     .onKeyPress(.upArrow) { moveResult(-1) }
                     .onSubmit {
@@ -316,10 +349,11 @@ struct TimelineWindow: View {
     }
 
     private func copyText() {
-        let words = selection == nil ? boxes : selectedWords
-        guard !words.isEmpty else { return }
+        let words = selectedWords
+        let text = selection == nil ? frameText : WordBox.text(of: words)
+        guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(WordBox.text(of: words), forType: .string)
+        NSPasteboard.general.setString(text, forType: .string)
         statusMessage = selection == nil ? "Copied all text" : "Copied \(words.count) \(words.count == 1 ? "word" : "words")"
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -465,12 +499,15 @@ struct TimelineWindow: View {
                 if !frame.title.isEmpty { Text("— \(frame.title)").lineLimit(1).foregroundStyle(.secondary) }
                 Spacer()
                 if let statusMessage { Text(statusMessage).foregroundStyle(.green) }
+                Button { showText.toggle() } label: { Image(systemName: "text.alignleft") }
+                    .buttonStyle(.plain).foregroundStyle(showText ? Color.accentColor : .secondary)
+                    .help("Show the text recognized in this screenshot (T)")
                 Button { prepareExclusion(frame) } label: { Image(systemName: "nosign") }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
                     .help("Never record \(frame.app)")
                 exportMenu
                 deleteMenu
-                if !boxes.isEmpty {
+                if !frameText.isEmpty {
                     Button("Copy Text", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
                         .help("Copy the selected words, or all text if nothing is selected (⌘C)")
                 }
@@ -604,6 +641,59 @@ struct TimelineWindow: View {
         }
     }
 
+    private func jumpToAppSwitch(_ direction: Int) {
+        let visible = frames
+        guard let i = currentIndex else { return }
+        select(visible[Activity.switchIndex(apps: visible.map(\.app), from: i, direction: direction)].id, animated: true)
+    }
+
+    private func jumpToEnd(first: Bool) {
+        let visible = frames
+        guard let target = first ? visible.first : visible.last else { return }
+        select(target.id, animated: true)
+    }
+
+    private var frameText: String { fullText.isEmpty ? WordBox.text(of: boxes) : fullText }
+
+    private var textPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Text").font(.headline)
+                Spacer()
+                if !frameText.isEmpty {
+                    Button("Copy", action: copyText).buttonStyle(.plain).foregroundStyle(.tint)
+                }
+            }
+            if frameText.isEmpty {
+                Text(current == nil ? "" : "No text was recognized in this screenshot.")
+                    .foregroundStyle(.secondary)
+                Spacer()
+            } else {
+                ScrollView {
+                    Text(highlightedText)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 320)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(.white.opacity(0.04))
+    }
+
+    private var highlightedText: AttributedString {
+        let text = frameText
+        var attributed = AttributedString(text)
+        let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map { $0.replacingOccurrences(of: "\"", with: "") }
+        for range in TextHighlight.ranges(in: text, terms: terms) {
+            if let target = Range(range, in: attributed) {
+                attributed[target].backgroundColor = .yellow.opacity(0.35)
+            }
+        }
+        return attributed
+    }
+
     private func step(_ delta: Int) {
         guard let i = currentIndex else { return }
         select(frames[min(max(i + delta, 0), frames.count - 1)].id, animated: true)
@@ -626,8 +716,13 @@ struct TimelineWindow: View {
     private func reloadDays() async {
         var loaded = (try? await recorder.db.days()) ?? []
         let today = Calendar.current.startOfDay(for: Date())
+        let daysWithFrames = loaded
         if !loaded.contains(today) { loaded.insert(today, at: 0) }
         days = loaded
+        if !didChooseInitialDay {
+            didChooseInitialDay = true
+            if day == today { day = Activity.initialDay(today: today, daysWithFrames: daysWithFrames) }
+        }
         allApps = (try? await recorder.db.apps()) ?? []
         for pair in (try? await recorder.db.appBundles()) ?? [] { AppIcons.shared.learn(app: pair.app, bundle: pair.bundle) }
     }
@@ -663,9 +758,13 @@ struct TimelineWindow: View {
     }
 
     private func loadBoxes() async {
-        guard let id = selectedID else { boxes = []; return }
+        guard let id = selectedID else { boxes = []; fullText = ""; return }
         let data = try? await recorder.db.boxes(for: id)
-        if !Task.isCancelled { boxes = WordBox.unpack(data) }
+        let text = (try? await recorder.db.texts(for: [id]))?[id] ?? ""
+        if !Task.isCancelled {
+            fullText = text
+            boxes = WordBox.recased(WordBox.unpack(data), from: text)
+        }
     }
 
     private func loadImage() async {
@@ -757,6 +856,21 @@ final class ScrubBridge {
         token = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: clip, queue: .main) { [weak self] _ in
             self?.onScroll?(clip.bounds.origin.x)
         }
+    }
+}
+
+enum TextHighlight {
+    static func ranges(in text: String, terms: [String]) -> [Range<String.Index>] {
+        var found: [Range<String.Index>] = []
+        for term in terms where !term.isEmpty {
+            var searchStart = text.startIndex
+            while searchStart < text.endIndex,
+                  let range = text.range(of: term, options: [.caseInsensitive, .diacriticInsensitive], range: searchStart..<text.endIndex) {
+                found.append(range)
+                searchStart = range.upperBound
+            }
+        }
+        return found.sorted { $0.lowerBound < $1.lowerBound }
     }
 }
 

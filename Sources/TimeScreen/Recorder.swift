@@ -45,6 +45,7 @@ final class Recorder: ObservableObject {
         Task {
             await refreshToday()
             await backfillBundles()
+            await Storage.removeOrphans(root: framesRoot, db: db)
         }
     }
 

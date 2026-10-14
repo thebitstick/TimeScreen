@@ -29,6 +29,7 @@ text recognition, and there is no language model and no inferencing anywhere.
 | **Capture** | Every display, every 2 to 60 seconds (5 by default), skipping frames where nothing changed. Stored as HEIC; screenshots older than a day are shrunk to save space |
 | **Timeline** | A full-screen filmstrip you scrub by scrolling anywhere. A colored bar shows which app you were in all day, with its icon. Pick days from a calendar, filter by app, or type a time (`3:45pm`, `15:30`, `noon`) into **Jump to time** |
 | **Search** | Search everything you've seen, filtered by date range or app. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
+| **Text panel** | Press **T** to show the text recognized in the current screenshot beside it, with your search words highlighted |
 | **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
 | **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
 | **Export** | Save a screenshot or a whole day as a folder with a Markdown transcript, in your choice of **Most Compatible** (JPEG), **High Efficiency** (HEIC) or **Best Quality** (PNG, lossless; screenshots are stored compressed, so it keeps what is stored without losing more). Copy an image, or save its text. Search results export as a transcript too |
@@ -52,9 +53,11 @@ later. A welcome window walks you through allowing **Screen Recording**.
 | | |
 |---|---|
 | Open the timeline | **⌥⌘T** (changeable, or removable, in Settings ▸ Shortcuts), the menu bar icon, or hold **⌘⇧** and scroll |
-| Move | Scroll anywhere, or **← →**. In search results, **↑ ↓** and **Return** |
+| Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **Home** and **End** to the first and last frame |
+| Search | **⌘F** or **/** focuses the search box. **↑ ↓** step through results and **Return** hands focus back |
+| Text | **T** shows or hides the text panel |
 | Close | **Esc** |
-| Pause | Menu bar ▸ Pause Recording, or Pause For 15 minutes, 1 hour or 8 hours |
+| Pause | Menu bar ▸ Pause Recording, or Pause For 15 minutes, 1 hour or 8 hours. You can also set a global **Pause / Resume** shortcut in Settings ▸ Shortcuts, which plays a short sound |
 
 The menu bar icon shows the state: recording, paused, a private window or power setting is stopping capture, the disk is
 almost full, or Screen Recording access is missing. While Settings or the Welcome window is open, TimeScreen also shows a Dock
@@ -81,6 +84,7 @@ icon, which macOS needs for it to bring those windows to the front.
 - **The timeline doesn't open:** check the shortcut in Settings ▸ Shortcuts (another app may use it) and, if you turned on the
   timeline lock, that you can authenticate.
 - **Copy Text isn't shown:** the frame was captured with "Make screen text searchable" turned off.
+- **The timeline opens on yesterday:** nothing has been captured yet today, so it opens on the latest day with screenshots.
 - **History is using a lot of disk:** lower the retention or the size limit in Settings ▸ Storage.
 
 ## Building

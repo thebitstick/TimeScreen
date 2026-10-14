@@ -20,6 +20,9 @@ enum Prefs {
     static let hotkeyCode = "hotkeyCode"
     static let hotkeyMods = "hotkeyMods"
     static let hotkeyLabel = "hotkeyLabel"
+    static let pauseHotkeyCode = "pauseHotkeyCode"
+    static let pauseHotkeyMods = "pauseHotkeyMods"
+    static let pauseHotkeyLabel = "pauseHotkeyLabel"
 
     static let defaultExcluded = """
         com.1password.1password
@@ -55,6 +58,9 @@ enum Prefs {
             hotkeyCode: 17,
             hotkeyMods: 2304, // ⌥⌘ (Carbon optionKey | cmdKey)
             hotkeyLabel: "T",
+            pauseHotkeyCode: 0,
+            pauseHotkeyMods: 0,
+            pauseHotkeyLabel: "",
         ])
     }
 

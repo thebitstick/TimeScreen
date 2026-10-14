@@ -72,9 +72,25 @@ struct WordBox: Codable, Hashable {
         return lines.map { $0.sorted { $0.x < $1.x }.map(\.t).joined(separator: " ") }.joined(separator: "\n")
     }
 
+    /// Frames from before words were stored in their original case only have lowercase words. The search index holds
+    /// the original text, and its words come in the same order as the boxes, so the case can be restored from it.
+    static func recased(_ boxes: [WordBox], from text: String) -> [WordBox] {
+        var words: [String] = []
+        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: .byWords) { word, _, _, _ in
+            if let word { words.append(word) }
+        }
+        guard words.count == boxes.count else { return boxes }
+        return zip(boxes, words).map { box, word in
+            word.lowercased() == box.t.lowercased() ? WordBox(t: word, x: box.x, y: box.y, w: box.w, h: box.h) : box
+        }
+    }
+
     static func matches(_ boxes: [WordBox], terms: [String]) -> [WordBox] {
         guard !terms.isEmpty else { return [] }
-        return boxes.filter { box in terms.contains { box.t.contains($0) } }
+        return boxes.filter { box in
+            let word = box.t.lowercased()
+            return terms.contains { word.contains($0) }
+        }
     }
 }
 
@@ -211,6 +227,10 @@ actor Database {
             for (id, text) in rows { result[id] = text }
         }
         return result
+    }
+
+    func allPaths() throws -> Set<String> {
+        Set(try rows("SELECT path FROM frames", []) { Self.text($0, 0) })
     }
 
     func appBundles() throws -> [(app: String, bundle: String)] {
