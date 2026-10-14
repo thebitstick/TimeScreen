@@ -1160,3 +1160,208 @@ final class SummaryStoreTests: XCTestCase {
         XCTAssertEqual(none, 0)
     }
 }
+
+final class StubGenerator: TextGenerator, @unchecked Sendable {
+    var contextSize: Int
+    private(set) var prompts: [String] = []
+    private(set) var instructions: [String] = []
+    var failFirstWith: Error?
+    private var calls = 0
+
+    init(contextSize: Int = 8192) { self.contextSize = contextSize }
+
+    var callCount: Int { calls }
+
+    func tokenCount(_ text: String) async -> Int { text.count / 3 }
+
+    func generate(instructions: String, prompt: String, maxTokens: Int) async throws -> String {
+        calls += 1
+        prompts.append(prompt)
+        self.instructions.append(instructions)
+        if calls == 1, let failFirstWith { throw failFirstWith }
+        return "Summary \(calls)."
+    }
+}
+
+private struct FakeContextError: Error, CustomStringConvertible {
+    var description: String { "contextSizeExceeded(contextSize: 10, tokenCount: 99)" }
+}
+
+final class SummaryServiceTests: XCTestCase {
+    private let calendar = Calendar.current
+    private lazy var day: Date = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: Date()))!
+
+    private func at(_ hour: Int, _ minute: Int, _ second: Int = 0) -> Date {
+        calendar.date(bySettingHour: hour, minute: minute, second: second, of: day)!
+    }
+
+    private func make(_ generator: StubGenerator = StubGenerator()) throws -> (Database, SummaryService, StubGenerator) {
+        let db = try Database(path: NSTemporaryDirectory() + "timescreen-\(UUID().uuidString).sqlite")
+        return (db, SummaryService(db: db, generator: generator), generator)
+    }
+
+    @discardableResult
+    private func addFrame(_ db: Database, _ date: Date, app: String = "Mail", text: String) async throws -> Int64 {
+        try await db.insert(date: date, app: app, title: "T", path: "\(UUID().uuidString).jpg", text: text)
+    }
+
+    func testAFrameSummaryIsCachedUntilRegenerated() async throws {
+        let (db, service, generator) = try make()
+        let id = try await addFrame(db, at(9, 2), text: "Quarterly budget review\nTravel costs")
+        let frame = try await db.frame(id: id)!
+        let first = try await service.summarize(.frame(frame))
+        XCTAssertEqual(first?.text, "Summary 1.")
+        XCTAssertTrue(generator.prompts[0].contains("Quarterly budget review"))
+        XCTAssertTrue(generator.prompts[0].contains("App: Mail"))
+        let second = try await service.summarize(.frame(frame))
+        XCTAssertEqual(second?.text, "Summary 1.")
+        XCTAssertEqual(generator.callCount, 1)
+        let again = try await service.summarize(.frame(frame), regenerate: true)
+        XCTAssertEqual(again?.text, "Summary 2.")
+        XCTAssertEqual(generator.callCount, 2)
+    }
+
+    func testAFrameWithNoTextThrows() async throws {
+        let (db, service, generator) = try make()
+        let id = try await addFrame(db, at(9, 2), text: "   ")
+        let frame = try await db.frame(id: id)!
+        do {
+            _ = try await service.summarize(.frame(frame))
+            XCTFail("expected an error")
+        } catch let error as SummaryError {
+            XCTAssertEqual(error, .noText)
+        }
+        XCTAssertEqual(generator.callCount, 0)
+    }
+
+    func testABlockSummaryDropsRepeatedChromeAndGoesStaleWhenFramesAreAdded() async throws {
+        let (db, service, generator) = try make()
+        for n in 0..<6 {
+            try await addFrame(db, at(9, 1, n * 10), text: "Menu Bar File Edit\nunique line \(n)")
+        }
+        let window = SummaryWindow.block(containing: at(9, 5))
+        let first = try await service.summarize(window)
+        XCTAssertEqual(first?.inputs, 6)
+        XCTAssertTrue(generator.prompts[0].contains("unique line 0"))
+        XCTAssertTrue(generator.prompts[0].contains("unique line 5"))
+        XCTAssertFalse(generator.prompts[0].contains("Menu Bar"))
+        XCTAssertTrue(generator.prompts[0].contains("Mail (6 screenshots)"))
+        let pendingBefore = try await service.pendingCount(window)
+        XCTAssertEqual(pendingBefore, 0)
+        _ = try await service.summarize(window)
+        XCTAssertEqual(generator.callCount, 1)
+
+        try await addFrame(db, at(9, 12), text: "a new line")
+        let pendingAfter = try await service.pendingCount(window)
+        XCTAssertEqual(pendingAfter, 1)
+        let refreshed = try await service.summarize(window)
+        XCTAssertEqual(refreshed?.inputs, 7)
+        XCTAssertEqual(generator.callCount, 2)
+    }
+
+    func testAnEmptyBlockHasNoSummary() async throws {
+        let (_, service, generator) = try make()
+        let result = try await service.summarize(.block(containing: at(9, 5)))
+        XCTAssertNil(result)
+        XCTAssertEqual(generator.callCount, 0)
+    }
+
+    func testAnHourIsBuiltFromItsBlocksWithProgress() async throws {
+        let (db, service, generator) = try make()
+        try await addFrame(db, at(9, 2), text: "first block text")
+        try await addFrame(db, at(9, 20), text: "second block text")
+        let hour = SummaryWindow.hour(containing: at(9, 0))
+        let pending = try await service.pendingCount(hour)
+        XCTAssertEqual(pending, 3)
+
+        final class Log: @unchecked Sendable { var steps: [[Int]] = [] }
+        let log = Log()
+        let record = try await service.summarize(hour) { done, total in log.steps.append([done, total]) }
+        XCTAssertEqual(generator.callCount, 3)
+        XCTAssertEqual(record?.inputs, 2)
+        XCTAssertEqual(log.steps, [[1, 3], [2, 3], [3, 3]])
+        XCTAssertTrue(generator.prompts[2].contains("Summary 1."))
+        XCTAssertTrue(generator.prompts[2].contains("Summary 2."))
+        XCTAssertEqual(generator.instructions[2], SummaryPrompt.rollupInstructions)
+
+        _ = try await service.summarize(hour)
+        XCTAssertEqual(generator.callCount, 3)
+        let none = try await service.pendingCount(hour)
+        XCTAssertEqual(none, 0)
+
+        try await addFrame(db, at(9, 40), text: "third block text")
+        let afterAdding = try await service.pendingCount(hour)
+        XCTAssertEqual(afterAdding, 2)
+    }
+
+    func testADayIsBuiltFromBlocksThenHoursThenTheDay() async throws {
+        let (db, service, generator) = try make()
+        try await addFrame(db, at(9, 2), text: "morning text")
+        try await addFrame(db, at(14, 40), text: "afternoon text")
+        let record = try await service.summarize(.day(containing: at(12, 0)))
+        XCTAssertEqual(generator.callCount, 5)
+        XCTAssertEqual(record?.inputs, 2)
+        XCTAssertEqual(record?.kind, .day)
+        let hours = try await db.summaries(kind: .hour, from: at(0, 0), to: at(23, 59))
+        XCTAssertEqual(hours.count, 2)
+    }
+
+    func testAnAppSummaryUsesOnlyThatAppsText() async throws {
+        let (db, service, generator) = try make()
+        try await addFrame(db, at(9, 2), app: "Mail", text: "inbox subject lines")
+        try await addFrame(db, at(9, 3), app: "Notes", text: "grocery list")
+        let record = try await service.summarize(.app("Mail", on: at(12, 0)))
+        XCTAssertEqual(record?.inputs, 1)
+        XCTAssertTrue(generator.prompts[0].contains("inbox subject lines"))
+        XCTAssertFalse(generator.prompts[0].contains("grocery"))
+        let nothing = try await service.summarize(.app("Music", on: at(12, 0)))
+        XCTAssertNil(nothing)
+    }
+
+    func testALongPromptIsTrimmedToFitASmallWindow() async throws {
+        let (db, service, generator) = try make(StubGenerator(contextSize: 1200))
+        let long = (0..<3000).map { "distinct line number \($0)" }.joined(separator: "\n")
+        let id = try await addFrame(db, at(9, 2), text: long)
+        let frame = try await db.frame(id: id)!
+        _ = try await service.summarize(.frame(frame))
+        let tokens = (generator.instructions[0] + "\n" + generator.prompts[0]).count / 3
+        XCTAssertLessThanOrEqual(tokens, 1200 - SummaryService.outputTokens - 300)
+        XCTAssertGreaterThan(generator.prompts[0].count, 100)
+    }
+
+    func testAContextOverflowFromTheModelIsRetriedWithLessText() async throws {
+        let generator = StubGenerator()
+        generator.failFirstWith = FakeContextError()
+        let (db, service, _) = try make(generator)
+        let id = try await addFrame(db, at(9, 2), text: String(repeating: "x ", count: 6000))
+        let frame = try await db.frame(id: id)!
+        let record = try await service.summarize(.frame(frame))
+        XCTAssertNotNil(record)
+        XCTAssertEqual(generator.callCount, 2)
+        XCTAssertLessThan(generator.prompts[1].count, generator.prompts[0].count)
+    }
+
+    func testOtherModelErrorsSurfaceAsFailures() async throws {
+        struct Boom: Error, LocalizedError { var errorDescription: String? { "the model is busy" } }
+        let generator = StubGenerator()
+        generator.failFirstWith = Boom()
+        let (db, service, _) = try make(generator)
+        let id = try await addFrame(db, at(9, 2), text: "something to read")
+        let frame = try await db.frame(id: id)!
+        do {
+            _ = try await service.summarize(.frame(frame))
+            XCTFail("expected an error")
+        } catch let error as SummaryError {
+            XCTAssertEqual(error, .failed("the model is busy"))
+        }
+        let cached = await service.cached(.frame(frame))
+        XCTAssertNil(cached)
+    }
+
+    func testOutputIsCleanedUp() throws {
+        XCTAssertEqual(try SummaryService.clean("  Summary: Read mail.\nThen wrote notes.  "), "Read mail. Then wrote notes.")
+        XCTAssertThrowsError(try SummaryService.clean("  \n "))
+        XCTAssertTrue(SummaryService.isContextOverflow(FakeContextError()))
+        XCTAssertFalse(SummaryService.isContextOverflow(CocoaError(.fileNoSuchFile)))
+    }
+}

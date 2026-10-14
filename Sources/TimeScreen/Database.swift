@@ -243,6 +243,15 @@ actor Database {
         Set(try rows("SELECT path FROM frames", []) { Self.text($0, 0) })
     }
 
+    func frame(id: Int64) throws -> Frame? {
+        try rows("SELECT id, ts, app, title, path, display, bundle, starred FROM frames WHERE id = ?", [.int(id)], map: Self.frame).first
+    }
+
+    func frames(app: String, from start: Date, to end: Date) throws -> [Frame] {
+        try rows("SELECT id, ts, app, title, path, display, bundle, starred FROM frames WHERE app = ? AND ts >= ? AND ts < ? ORDER BY ts",
+                 [.text(app), .double(start.timeIntervalSince1970), .double(end.timeIntervalSince1970)], map: Self.frame)
+    }
+
     func setStarred(_ starred: Bool, id: Int64) throws {
         try run("UPDATE frames SET starred = ? WHERE id = ?", [.int(starred ? 1 : 0), .int(id)])
     }
