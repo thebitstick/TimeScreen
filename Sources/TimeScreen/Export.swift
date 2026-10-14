@@ -35,25 +35,89 @@ enum Transcript {
     }
 }
 
-@MainActor
-enum Exporter {
-    nonisolated static func writePNG(from source: URL, to destination: URL) throws {
-        guard let imageSource = CGImageSourceCreateWithURL(source as CFURL, nil),
-              let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil),
-              let target = CGImageDestinationCreateWithURL(destination as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        CGImageDestinationAddImage(target, image, nil)
-        guard CGImageDestinationFinalize(target) else { throw CocoaError(.fileWriteUnknown) }
+enum ExportFormat: String, CaseIterable {
+    case mostCompatible, highEfficiency
+
+    static let preferenceKey = "exportFormat"
+
+    static var saved: ExportFormat {
+        get { UserDefaults.standard.string(forKey: preferenceKey).flatMap(ExportFormat.init) ?? .mostCompatible }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: preferenceKey) }
     }
 
-    nonisolated static func writeDay(frames: [Frame], texts: [Int64: String], title: String, root: URL, into folder: URL) throws {
+    var title: String {
+        switch self {
+        case .mostCompatible: "Most Compatible (JPEG)"
+        case .highEfficiency: "High Efficiency (HEIC)"
+        }
+    }
+
+    var fileExtension: String { self == .mostCompatible ? "jpg" : "heic" }
+    var type: UTType { self == .mostCompatible ? .jpeg : .heic }
+    var quality: Double { self == .mostCompatible ? 0.9 : 0.8 }
+
+    func matches(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return self == .mostCompatible ? (ext == "jpg" || ext == "jpeg") : ext == "heic"
+    }
+}
+
+enum ImageEncoding {
+    /// Copies the file untouched when it is already in `format`; otherwise decodes and re-encodes it.
+    static func write(_ source: URL, as format: ExportFormat, to destination: URL) throws {
+        if format.matches(source) {
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: source, to: destination)
+            return
+        }
+        guard let imageSource = CGImageSourceCreateWithURL(source as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil),
+              let target = CGImageDestinationCreateWithURL(destination as CFURL, format.type.identifier as CFString, 1, nil) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        CGImageDestinationAddImage(target, image, [kCGImageDestinationLossyCompressionQuality: format.quality] as CFDictionary)
+        guard CGImageDestinationFinalize(target) else { throw CocoaError(.fileWriteUnknown) }
+    }
+}
+
+@MainActor
+final class FormatAccessory: NSObject {
+    let view: NSView
+    private let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let onChange: (ExportFormat) -> Void
+
+    private(set) var format: ExportFormat
+
+    init(onChange: @escaping (ExportFormat) -> Void = { _ in }) {
+        self.onChange = onChange
+        format = ExportFormat.saved
+        let label = NSTextField(labelWithString: "Image format:")
+        popup.addItems(withTitles: ExportFormat.allCases.map(\.title))
+        popup.selectItem(at: ExportFormat.allCases.firstIndex(of: format) ?? 0)
+        let stack = NSStackView(views: [label, popup])
+        stack.orientation = .horizontal
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
+        view = stack
+        super.init()
+        popup.target = self
+        popup.action = #selector(changed)
+    }
+
+    @objc private func changed() {
+        format = ExportFormat.allCases[popup.indexOfSelectedItem]
+        ExportFormat.saved = format
+        onChange(format)
+    }
+}
+
+@MainActor
+enum Exporter {
+    nonisolated static func writeDay(frames: [Frame], texts: [Int64: String], title: String, root: URL, format: ExportFormat, into folder: URL) throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         for frame in frames {
             let source = root.appendingPathComponent(frame.path)
-            let target = folder.appendingPathComponent(Transcript.fileName(for: frame, ext: source.pathExtension))
-            try? FileManager.default.removeItem(at: target)
-            try FileManager.default.copyItem(at: source, to: target)
+            try ImageEncoding.write(source, as: format, to: folder.appendingPathComponent(Transcript.fileName(for: frame, ext: format.fileExtension)))
         }
         try Transcript.markdown(title: title, frames: frames, texts: texts)
             .write(to: folder.appendingPathComponent("transcript.md"), atomically: true, encoding: .utf8)
@@ -61,11 +125,17 @@ enum Exporter {
 
     static func saveImage(of frame: Frame, root: URL, window: NSWindow?, done: @escaping (String) -> Void) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.png]
-        panel.nameFieldStringValue = "TimeScreen \(stamp(frame.date)).png"
+        let base = "TimeScreen \(stamp(frame.date))"
+        let accessory = FormatAccessory { format in
+            panel.allowedContentTypes = [format.type]
+            panel.nameFieldStringValue = base + "." + format.fileExtension
+        }
+        panel.accessoryView = accessory.view
+        panel.allowedContentTypes = [accessory.format.type]
+        panel.nameFieldStringValue = base + "." + accessory.format.fileExtension
         run(panel, in: window) { url in
             do {
-                try writePNG(from: root.appendingPathComponent(frame.path), to: url)
+                try ImageEncoding.write(root.appendingPathComponent(frame.path), as: accessory.format, to: url)
                 done("Saved image")
             } catch {
                 done("Couldn't save the image")
@@ -115,11 +185,14 @@ enum Exporter {
         panel.canCreateDirectories = true
         panel.prompt = "Export Here"
         panel.message = "Choose where to put the exported folder."
+        let accessory = FormatAccessory()
+        panel.accessoryView = accessory.view
         run(panel, in: window) { parent in
             let folder = parent.appendingPathComponent(title, isDirectory: true)
+            let format = accessory.format
             Task.detached(priority: .utility) {
                 do {
-                    try writeDay(frames: frames, texts: texts, title: title, root: root, into: folder)
+                    try writeDay(frames: frames, texts: texts, title: title, root: root, format: format, into: folder)
                     await MainActor.run { done("Exported \(frames.count) frames") }
                 } catch {
                     await MainActor.run { done("Couldn't export") }

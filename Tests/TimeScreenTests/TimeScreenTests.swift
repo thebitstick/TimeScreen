@@ -1,3 +1,4 @@
+import UniformTypeIdentifiers
 import XCTest
 @testable import TimeScreen
 
@@ -579,31 +580,74 @@ final class ExportTests: XCTestCase {
         XCTAssertFalse(md.contains("> \n"))
     }
 
-    func testWritingADayCopiesTheFilesAndATranscript() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ts-export-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: root) }
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let frames = makeFrames()
-        for frame in frames { try Data("image".utf8).write(to: root.appendingPathComponent(frame.path)) }
-        let out = root.appendingPathComponent("export")
-        try Exporter.writeDay(frames: frames, texts: [1: "Hello"], title: "Day", root: root, into: out)
-        let names = try FileManager.default.contentsOfDirectory(atPath: out.path).sorted()
-        XCTAssertEqual(names, ["093005.heic", "093105-d1.heic", "transcript.md"])
-        let transcript = try String(contentsOf: out.appendingPathComponent("transcript.md"), encoding: .utf8)
-        XCTAssertTrue(transcript.contains("> Hello"))
+    private func makeImage(_ url: URL, as format: ExportFormat) throws {
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 16, pixelsHigh: 16, bitsPerSample: 8, samplesPerPixel: 4,
+                                   hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        let data = NSMutableData()
+        let destination = CGImageDestinationCreateWithData(data, format.type.identifier as CFString, 1, nil)!
+        CGImageDestinationAddImage(destination, rep.cgImage!, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        try (data as Data).write(to: url)
     }
 
-    func testPNGConversion() throws {
-        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8, bitsPerSample: 8, samplesPerPixel: 4,
-                                   hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-png-\(UUID().uuidString)")
+    private func kind(_ url: URL) throws -> String {
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        return CGImageSourceGetType(source) as String? ?? ""
+    }
+
+    private func scratch() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ts-export-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let (data, _) = try Capturer.encode(rep.cgImage!)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return dir
+    }
+
+    func testAnImageInTheChosenFormatIsCopiedUntouched() throws {
+        let dir = try scratch()
         let source = dir.appendingPathComponent("in.heic")
-        try data.write(to: source)
-        let png = dir.appendingPathComponent("out.png")
-        try Exporter.writePNG(from: source, to: png)
-        XCTAssertEqual(try Data(contentsOf: png).prefix(4), Data([0x89, 0x50, 0x4E, 0x47]))
+        try makeImage(source, as: .highEfficiency)
+        let copy = dir.appendingPathComponent("out.heic")
+        try ImageEncoding.write(source, as: .highEfficiency, to: copy)
+        XCTAssertEqual(try Data(contentsOf: copy), try Data(contentsOf: source))
+    }
+
+    func testImagesAreConvertedBetweenTheTwoFormats() throws {
+        let dir = try scratch()
+        let heic = dir.appendingPathComponent("in.heic")
+        try makeImage(heic, as: .highEfficiency)
+        let jpeg = dir.appendingPathComponent("out.jpg")
+        try ImageEncoding.write(heic, as: .mostCompatible, to: jpeg)
+        XCTAssertEqual(try kind(jpeg), UTType.jpeg.identifier)
+
+        let back = dir.appendingPathComponent("back.heic")
+        try ImageEncoding.write(jpeg, as: .highEfficiency, to: back)
+        XCTAssertEqual(try kind(back), UTType.heic.identifier)
+    }
+
+    func testFormatsKnowTheirFiles() {
+        XCTAssertTrue(ExportFormat.mostCompatible.matches(URL(fileURLWithPath: "/x/a.JPG")))
+        XCTAssertTrue(ExportFormat.mostCompatible.matches(URL(fileURLWithPath: "/x/a.jpeg")))
+        XCTAssertFalse(ExportFormat.mostCompatible.matches(URL(fileURLWithPath: "/x/a.heic")))
+        XCTAssertTrue(ExportFormat.highEfficiency.matches(URL(fileURLWithPath: "/x/a.heic")))
+        XCTAssertEqual(ExportFormat.mostCompatible.fileExtension, "jpg")
+        XCTAssertEqual(ExportFormat.highEfficiency.fileExtension, "heic")
+    }
+
+    func testWritingADayUsesTheChosenFormatAndAddsATranscript() throws {
+        let root = try scratch()
+        let frames = makeFrames()
+        try makeImage(root.appendingPathComponent(frames[0].path), as: .highEfficiency)
+        try makeImage(root.appendingPathComponent(frames[1].path), as: .highEfficiency)
+
+        let compatible = root.appendingPathComponent("compatible")
+        try Exporter.writeDay(frames: frames, texts: [1: "Hello"], title: "Day", root: root, format: .mostCompatible, into: compatible)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: compatible.path).sorted(), ["093005.jpg", "093105-d1.jpg", "transcript.md"])
+        XCTAssertEqual(try kind(compatible.appendingPathComponent("093005.jpg")), UTType.jpeg.identifier)
+
+        let efficient = root.appendingPathComponent("efficient")
+        try Exporter.writeDay(frames: frames, texts: [1: "Hello"], title: "Day", root: root, format: .highEfficiency, into: efficient)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: efficient.path).sorted(), ["093005.heic", "093105-d1.heic", "transcript.md"])
+        let transcript = try String(contentsOf: efficient.appendingPathComponent("transcript.md"), encoding: .utf8)
+        XCTAssertTrue(transcript.contains("> Hello"))
     }
 }

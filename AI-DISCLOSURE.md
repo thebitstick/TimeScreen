@@ -40,8 +40,9 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   every frame in that range together with its search entries, word positions and image files, and left the rest.
 - The README screenshots use a fictional day of screenshots drawn by `Scripts/demo-data`, run through the app's real OCR.
   Searching and highlighting in them is the real code path.
-- Export: the file writing (PNG conversion, copying a day's screenshots, the transcript) is unit-tested, and the Save panel was
-  seen opening above the timeline in a test copy with fictional data.
+- Export: the file writing (conversion between JPEG and HEIC, copying an unchanged file, a day's folder and transcript) is
+  unit-tested, and the Save and folder panels with their format popup were seen opening above the timeline in a test copy.
+  The author tried the earlier PNG version of export and reports it works.
 - The development-build setting: with "install automatically" saved as on, a locally signed build reports automatic updates as
   off, and a release-style build does not get the flag.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.

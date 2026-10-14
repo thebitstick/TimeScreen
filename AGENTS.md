@@ -97,7 +97,9 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   `AppIcons.bundleIdentifier(for:)` for old frames, and the dialog says so if neither works.
 - **Search results** navigate with ↑ ↓ from the search field (`moveResult`) and Return hands focus back to the timeline.
 - **Export** (`Export.swift`): panels are presented as sheets on the overlay window, because the overlay sits above normal
-  windows and would hide a free-standing panel. File work (`writePNG`, `writeDay`) is `nonisolated` and runs off the main thread.
+  windows and would hide a free-standing panel. The image format is a popup in the panels' accessory view (`FormatAccessory`, remembered in
+  `exportFormat`): Most Compatible is JPEG, High Efficiency is HEIC, and a stored file already in the chosen format is copied
+  without re-encoding (`ImageEncoding`). File work (`ImageEncoding`, `writeDay`) is `nonisolated` and runs off the main thread.
 - **Storage cap:** `Recorder.enforceStorageCap` runs every 10 minutes, and when usage exceeds `maxStorageGB` it deletes
   the oldest frames (files, index and boxes) down to 90% of the cap. Retention by age is separate and hourly.
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are
