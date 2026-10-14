@@ -27,7 +27,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - On the author's Mac, and reported working by the author: capture, OCR and search with date and app filters,
   the full-screen timeline, scrolling anywhere, the global shortcut and Command+Shift+scroll, match highlighting,
   copying text, the app filter, the colored activity bar and calendar, the jump-to-time box, the settings window,
-  pausing from the menu bar, the timeline lock (Touch ID or password), the delete menus and their confirmations, the
+  pausing from the menu bar, the new timeline keys (⌘F, /, ⌥← ⌥→, ⇧← ⇧→, ⌘← ⌘→), the Text panel and the global Pause / Resume
+  shortcut, the timeline lock (Touch ID or password), the delete menus and their confirmations, the
   menu bar icon's states, the one-click "never record this app" button and the ↑ ↓ keys in search results. Settings opening in front on every open was reproduced and checked by driving TimeScreen's menu with System Events.
 - Checked by the AI against real data: compaction of frames older than a day, and that a private Zen window stops
   a screen being captured.
@@ -57,8 +58,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   capture are covered by unit tests alone.
 - Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
   the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
-- Home and End in the timeline (the author's keyboard has neither key; ⌘← and ⌘→ do the same). The new keys were not pressed on a
-  real keyboard by the AI; the author reports the others, the Text panel and the Pause / Resume shortcut work.
+- Home and End in the timeline: the author's keyboard has neither key, so only ⌘← and ⌘→, which do the same, have been tried.
 - Clicking through the export menu items and saving real files from them.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their
