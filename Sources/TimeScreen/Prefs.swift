@@ -51,7 +51,7 @@ enum Prefs {
             maxStorageGB: 20,
             pauseOnBattery: false,
             backoffWhenAway: true,
-            autoSummaries: false,
+            autoSummaries: true,
             pauseInLowPower: false,
             ocr: true,
             compactOld: true,

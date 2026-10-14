@@ -31,7 +31,11 @@ actor SummaryService {
     private let generator: TextGenerator
     private let calendar: Calendar
 
-    static let outputTokens = 160
+    /// Frames, blocks and apps get one or two sentences, so a short output limit keeps them quick.
+    static let outputTokens = 110
+    /// How much of the model's window the screen text may take. Reading the input is most of the time a request takes, and a longer
+    /// input barely improves a short recap, so this is well under the window.
+    static let inputTokens = 2000
     static let rollupOutputTokens = 280
     private static let framesPerBlock = 40
     private static let framesPerApp = 60
@@ -195,8 +199,8 @@ actor SummaryService {
     /// Trims the prompt's text until the whole request fits the model's window, and again if the model still says it is too long.
     private func generate(instructions: String, outputTokens: Int = SummaryService.outputTokens,
                           build: (_ characters: Int) -> String) async throws -> String {
-        var characters = 14_000
-        let budget = max(generator.contextSize - outputTokens - 300, 100)
+        let budget = min(max(generator.contextSize - outputTokens - 300, 100), Self.inputTokens)
+        var characters = min(14_000, budget * 3)
         for _ in 0..<5 {
             let prompt = build(characters)
             let tokens = await generator.tokenCount(instructions + "\n" + prompt)

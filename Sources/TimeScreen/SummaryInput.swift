@@ -123,7 +123,7 @@ enum SummaryInput {
 enum SummaryPrompt {
     static let instructions = """
         You write short, factual summaries of what a person was doing on their Mac, using only text read from their screen \
-        (it can be messy or incomplete). Write one to three plain sentences with no lists, headings or markdown, in the second \
+        (it can be messy or incomplete). Write one or two short plain sentences with no lists, headings or markdown, in the second \
         person ("You read an email about…"). Say which apps or sites were involved and what the main subject was. Do not guess at \
         things the text does not show.
         """

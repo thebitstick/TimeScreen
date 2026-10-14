@@ -178,8 +178,8 @@ private struct SummariesPane: View {
             .padding(.vertical, 5)
             LabeledContent("Automatic:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Write summaries of finished 15-minute stretches", isOn: $automatic)
-                    Note("Only while the Mac is idle and plugged in, and not in Low Power Mode. Hours and days are put together from those when you ask for them. Off by default, since it uses energy.")
+                    Toggle("Write summaries in the background", isOn: $automatic)
+                    Note("Finished 15-minute stretches and hours are written ahead of time, so a day's recap only has to put them together. It only runs while the Mac is idle and plugged in, and not in Low Power Mode, and stops as soon as you use the Mac. Turn it off to write summaries only when you ask.")
                 }
             }
             .padding(.vertical, 5)

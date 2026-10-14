@@ -127,12 +127,18 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **Summaries** (`SummaryService`, `Summarizer`, `SummaryInput`, `SummaryViews`): the unit is a fixed 15-minute block, because app
   runs are far too fine (apps alternate every minute) and a frame each is hundreds an hour. Blocks roll up into hours and days; a
   frame and an app's day are on demand. The model reads text only, one request at a time, through a `TextGenerator` so the logic is
-  tested with a stub. Each request is trimmed to the model's window (8,192 tokens on macOS 27; measure with `contextSize`; ~3.2
-  characters per token): instructions + prompt + 160-280 output tokens, with a retry if the model still says it is too long. Long
+  tested with a stub. Each request is trimmed to `SummaryService.inputTokens` (2,000) of screen text, well inside the model's window
+  (8,192 tokens on macOS 27; `contextSize`; ~3.2 characters per token), because reading the input is most of a request's time (measured on
+  real screens: 4,500 tokens took ~7 s, 1,800 tokens ~2.7 s per block) and more text barely helps a one- or two-sentence recap. Output is capped at
+  110 tokens (280 for hour and day rollups), with a retry if the model still says the prompt is too long. Long
   stretches are condensed first: repeated lines (menu bars, docks) are dropped. Results are cached in `summaries`, rollups are stale
   when their input count changes, and **deleting frames (`delete(ids:)`, prune, delete all) also deletes the summaries covering that
   time**, so a deleted screenshot's content never lingers in a summary. Output that hit the length cap is cut back to the last whole
-  sentence. Automatic mode (off by default) writes finished blocks only while idle, plugged in and not in Low Power Mode.
+  sentence. Automatic mode (on by default) writes finished blocks, then finished hours, only while idle, plugged in and not in Low Power Mode,
+  re-checking before each request so it stops when you come back; every step bumps `Summarizer.revision`, so open views fill in as work
+  finishes. The cloud model (`PrivateCloudComputeLanguageModel`) was measured: it needs the restricted entitlement
+  `com.apple.developer.private-cloud-compute` (a binary signed with it is killed without a provisioning profile), has an opaque daily quota and
+  a 32,768-token window, and sends text off the Mac, so it is not used.
   `FoundationModels` is weakly linked (Package.swift) and used behind `#available(macOS 26)`/`canImport`, so the app still runs on
   macOS 14; the release workflows therefore build on `macos-26`, whose SDK has the framework. `--summarize-day yyyy-MM-dd` writes a
   day's summaries at launch and `-showRecap YES` opens the recap, for demos.

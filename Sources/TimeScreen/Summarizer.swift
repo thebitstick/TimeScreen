@@ -103,6 +103,7 @@ final class Summarizer: ObservableObject {
                     Task { @MainActor in
                         owner.job?.done = done
                         owner.job?.total = total
+                        owner.revision += 1
                     }
                 }
             } catch is CancellationError {
@@ -134,36 +135,50 @@ final class Summarizer: ObservableObject {
     func startAutomatic() {
         guard automaticTask == nil else { return }
         automaticTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2 * 60 * 1_000_000_000)
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)
                 await self?.automaticPass()
+                try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)
             }
         }
     }
 
+    /// Whether summaries may be written in the background right now: wanted, nothing else running, the Mac plugged in and not in
+    /// Low Power Mode, and nobody at the keyboard.
+    private var mayWorkInBackground: Bool {
+        UserDefaults.standard.bool(forKey: Prefs.autoSummaries) && job == nil && !Power.isOnBattery
+            && !ProcessInfo.processInfo.isLowPowerModeEnabled && CaptureCadence.idleSeconds >= 60
+    }
+
+    /// Writes the summaries of finished 15-minute stretches, oldest first, then of the finished hours built from them, so that asking
+    /// for a day later only has to put the pieces together. Stops the moment the Mac is used or unplugged.
     private func automaticPass() async {
-        let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: Prefs.autoSummaries), job == nil, !Power.isOnBattery,
-              !ProcessInfo.processInfo.isLowPowerModeEnabled, CaptureCadence.idleSeconds >= 60,
-              let generator = SystemModel.makeGenerator() else { return }
+        guard mayWorkInBackground, let generator = SystemModel.makeGenerator() else { return }
         let db = Recorder.shared.db
         let service = SummaryService(db: db, generator: generator)
         let now = Date()
         let from = Calendar.current.date(byAdding: .hour, value: -36, to: now) ?? now
         guard let starts = try? await db.blockStarts(from: from, to: now) else { return }
         var written = 0
-        for start in starts where written < 3 {
-            let window = SummaryWindow.block(containing: start)
-            guard window.end <= now.addingTimeInterval(-60), !skippedAutomatically.contains(window),
-                  CaptureCadence.idleSeconds >= 60 else { continue }
-            guard ((try? await service.pendingCount(window)) ?? 0) > 0 else { continue }
+
+        let blocks = starts.map { SummaryWindow.block(containing: $0) }
+        var hours: [SummaryWindow] = []
+        for block in blocks {
+            let hour = SummaryWindow.hour(containing: block.start)
+            if hours.last != hour { hours.append(hour) }
+        }
+        let finishedBlocks = blocks.filter { $0.end <= now.addingTimeInterval(-60) }
+        let finishedHours = hours.filter { $0.end <= now.addingTimeInterval(-300) }
+
+        for window in finishedBlocks + finishedHours where written < 24 && mayWorkInBackground {
+            guard !skippedAutomatically.contains(window), ((try? await service.pendingCount(window)) ?? 0) > 0 else { continue }
             do {
                 _ = try await service.summarize(window)
                 written += 1
+                revision += 1
             } catch {
                 skippedAutomatically.insert(window)
             }
         }
-        if written > 0 { revision += 1 }
     }
 }

@@ -1330,6 +1330,18 @@ final class SummaryServiceTests: XCTestCase {
         XCTAssertGreaterThan(generator.prompts[0].count, 100)
     }
 
+    func testRecapsNeverReadMoreThanTheInputCapEvenInABigWindow() async throws {
+        let (db, service, generator) = try make(StubGenerator(contextSize: 8192))
+        for n in 0..<30 {
+            try await addFrame(db, at(9, 1, n), text: (0..<400).map { "frame \(n) distinct line \($0) with some words" }.joined(separator: "\n"))
+        }
+        _ = try await service.summarize(.block(containing: at(9, 5)))
+        let tokens = (generator.instructions[0] + "\n" + generator.prompts[0]).count / 3
+        XCTAssertLessThanOrEqual(tokens, SummaryService.inputTokens)
+        XCTAssertGreaterThan(tokens, SummaryService.inputTokens / 2)
+        XCTAssertEqual(SummaryService.outputTokens, 110)
+    }
+
     func testAContextOverflowFromTheModelIsRetriedWithLessText() async throws {
         let generator = StubGenerator()
         generator.failFirstWith = FakeContextError()

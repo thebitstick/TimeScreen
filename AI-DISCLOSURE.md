@@ -56,7 +56,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Summaries: the logic is unit-tested with a stub model (caching, rollups, progress, staleness, budgeting, retry, cleanup, deletion
   with the frames they cover). A live test runs Apple's real on-device model on fictional screens and was run by the AI; it skips
   itself where the model is unavailable. The AI also had the real model write a whole fictional day (34 blocks, 9 hours and the
-  day) through the app's own code path.
+  day) through the app's own code path. Timings on a copy of the author's real history: about 2.7 s per 15-minute block after
+  the input was capped (6.4-7.5 s before), 1.8 s for an hour rollup.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
 ## What was not tested
@@ -67,7 +68,7 @@ features, and ran and used the app on their own Mac, reporting what worked and w
 - Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
   the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
 - Home and End in the timeline: the author's keyboard has neither key, so only ⌘← and ⌘→, which do the same, have been tried.
-- Automatic summaries, and the model on a Mac other than the author's. Summary quality is plausible but not guaranteed: it can
+- Background summaries (on by default) on real use over time, and the model on a Mac other than the author's. Summary quality is plausible but not guaranteed: it can
   mention things that are not on screen. The Summary tab, the day recap and the Summaries settings were seen on fictional data (the
   recap's list was found cut off and fixed), but the author has not yet used them on their own history.
 - Clicking through the export menu items and saving real files from them.

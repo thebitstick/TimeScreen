@@ -69,11 +69,13 @@ the screenshots they cover.
 
 How it works, and its limits:
 
-- The model reads about 8,000 tokens at a time (roughly 20,000 characters), so a stretch of many screenshots is boiled down first:
-  lines that repeat on most of them, like menu bars and sidebars, are dropped. Each summary takes a few seconds, and a whole day takes a
-  couple of minutes, which is why larger summaries are built from smaller ones and kept.
-- Settings ▸ Summaries can write finished 15-minute stretches automatically, but only while the Mac is idle and plugged in. It is off by
-  default because it uses energy.
+- The model reads about 8,000 tokens at a time, but a recap only gets about 2,000 of them (roughly 6,000 characters): reading the input is
+  most of the time a request takes, and more text barely improves a one- or two-sentence recap. A stretch of many screenshots is boiled down
+  first, dropping lines that repeat on most of them, like menu bars and sidebars. On a typical Mac that is about 2 to 3 seconds per
+  15-minute stretch and under 2 for an hour.
+- By default TimeScreen writes finished 15-minute stretches and hours **in the background**, only while the Mac is idle and plugged in
+  (not in Low Power Mode), stopping as soon as you use it. A day's recap then just puts the hours together. You can turn this off in
+  Settings ▸ Summaries; without it, summarizing a whole day from scratch takes a couple of minutes.
 - Summaries can be wrong, or thin when a screen has little text. They need macOS 26 or later with Apple Intelligence turned on.
 
 ## Install
@@ -121,8 +123,8 @@ icon, which macOS needs for it to bring those windows to the front.
   ad hoc rather than with a developer certificate.
 - **The timeline doesn't open:** check the shortcut in Settings ▸ Shortcuts (another app may use it) and, if you turned on the
   timeline lock, that you can authenticate.
-- **Summaries are slow:** the model writes one at a time, a few seconds each, and a day is built from dozens. Progress shows on the card, and
-  you can cancel.
+- **Summaries are slow:** the model writes one at a time, a few seconds each, and a day from scratch is dozens of them. Leave background
+  summaries on and plug the Mac in while you're away, and recaps are mostly ready when you ask. Progress shows on the card, and you can cancel.
 - **Summaries say the model isn't available:** they need macOS 26 or later with Apple Intelligence turned on in System Settings, and the
   model downloaded. Settings ▸ Summaries says which of those is missing.
 - **Copy Text isn't shown:** the frame was captured with "Make screen text searchable" turned off.
