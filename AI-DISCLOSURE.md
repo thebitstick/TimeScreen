@@ -57,8 +57,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   capture are covered by unit tests alone.
 - Pausing on battery power or in Low Power Mode, and pausing when the disk is almost full: the decisions are unit-tested and
   the battery reading was checked on a MacBook, but neither pause has been seen working in the app.
-- The new timeline keys (⌘F, /, Home, End, ⌥← ⌥→, ⇧← ⇧→, T) and the global Pause / Resume shortcut, which were not pressed on a
-  real keyboard by the AI.
+- Home and End in the timeline (the author's keyboard has neither key; ⌘← and ⌘→ do the same). The new keys were not pressed on a
+  real keyboard by the AI; the author reports the others, the Text panel and the Pause / Resume shortcut work.
 - Clicking through the export menu items and saving real files from them.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their

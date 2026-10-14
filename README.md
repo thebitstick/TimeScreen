@@ -53,7 +53,7 @@ later. A welcome window walks you through allowing **Screen Recording**.
 | | |
 |---|---|
 | Open the timeline | **⌥⌘T** (changeable, or removable, in Settings ▸ Shortcuts), the menu bar icon, or hold **⌘⇧** and scroll |
-| Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **Home** and **End** to the first and last frame |
+| Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **⌘← ⌘→** (or **Home** and **End**) to the first and last frame |
 | Search | **⌘F** or **/** focuses the search box. **↑ ↓** step through results and **Return** hands focus back |
 | Text | **T** shows or hides the text panel |
 | Close | **Esc** |

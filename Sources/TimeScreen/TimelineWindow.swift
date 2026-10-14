@@ -85,7 +85,9 @@ struct TimelineWindow: View {
         .focused($focused)
         .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
             let direction = press.key == .rightArrow ? 1 : -1
-            if press.modifiers.contains(.option) {
+            if press.modifiers.contains(.command) {
+                jumpToEnd(first: direction < 0)
+            } else if press.modifiers.contains(.option) {
                 jumpToAppSwitch(direction)
             } else {
                 step(press.modifiers.contains(.shift) ? direction * 10 : direction)
