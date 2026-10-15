@@ -3,8 +3,8 @@ import Foundation
 enum JumpTime {
     private static let pattern = try! NSRegularExpression(pattern: #"^(\d{1,2})(?::?(\d{2}))?\s*(am?|pm?)?$"#)
 
-    private static let noonWords: Set<String> = ["noon", "mediodia", "midi", "mittag", "正午", "中午"]
-    private static let midnightWords: Set<String> = ["midnight", "medianoche", "minuit", "mitternacht", "middernacht", "午夜", "零点", "真夜中"]
+    private static let noonWords: Set<String> = ["noon", "mediodia", "midi", "mittag", "mezzogiorno", "meio-dia", "정오", "正午", "中午"]
+    private static let midnightWords: Set<String> = ["midnight", "medianoche", "minuit", "mitternacht", "middernacht", "mezzanotte", "meia-noite", "자정", "午夜", "零点", "真夜中"]
 
     /// Without am/pm, an hour from 1 to 12 could be either half of the day, so both are returned.
     static func candidates(_ text: String, on day: Date, calendar: Calendar = .current) -> [Date] {

@@ -162,20 +162,21 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   backfilled at launch from what is known about the name). Icons and never-record resolve through the bundle identifier when
   there is one and fall back to matching the name against installed applications.
 
-- **Localization** (`Resources/Localizable.xcstrings`: English plus Spanish, French, German, Dutch, Simplified Chinese and Japanese).
+- **Localization** (`Resources/Localizable.xcstrings`: English plus Spanish, French, German, Dutch, Italian, Brazilian Portuguese (`pt-BR`), Korean, Japanese, Simplified Chinese (`zh-Hans`) and Traditional Chinese (`zh-Hant`)).
   Every string a user can read goes through the catalog. In SwiftUI pass literals (`Text("…")`, `Button("…")`, `.help("…")`, `Note("…")`)
   so the compiler extracts them; in code that builds a `String` (alerts, panels, status lines, errors) use `String(localized: "…")`; for a
   count use an interpolated `%lld` with plural variations (`one`/`other`), never `n == 1 ? "x" : "xs"`. SwiftUI does not localize a string
   that comes out of a `String` variable, a `??`, or the result of an `if`: branch with separate `Text("…")` literals or call
   `String(localized:)`. After changing a string run `Scripts/extract-strings.sh` (compiler-based; it marks keys the code no longer uses as
-  stale), then add all six translations. `LocalizationTests` fail when a string lacks a language, a placeholder differs from the English, a
+  stale), then add every translation (`LocalizationTests.languages` lists them). `LocalizationTests` fail when a string lacks a language, a placeholder differs from the English, a
   plural lacks a form, or a stale key remains. `Scripts/build-app.sh` compiles the catalog with `xcstringstool` into `.lproj` folders and
   `Info.plist` lists `CFBundleLocalizations`. Check a language on a throwaway copy with `-AppleLanguages "(ja)"`, and a Settings pane with
   `-settingsTab 0…5` (the window remembers its last pane). Capture only that copy's own window (`screencapture -l <id>`).
   Wording to keep consistent: **screenshot** (never "frame" in anything a user reads), **capture** for taking screenshots and
   **recording** for the on/off state, **front app**, **summary** (a day's is a **recap**), **on-device Apple Intelligence**. Translations
-  use Apple's macOS terms and the informal "tú", "du" and "je" (French uses "vous"). Keep long labels wrapping (`fixedSize(horizontal:
+  use Apple's macOS terms and the informal "tú", "du", "je", "tu" and "você" (French uses "vous", Korean the polite 합니다 form). Keep long labels wrapping (`fixedSize(horizontal:
   false, vertical: true)` on toggles) because German and French run long, and keep the Jump to time placeholder short.
+- **Adding a language** means: all strings in the catalog, its code in `Info.plist` `CFBundleLocalizations` and `LocalizationTests.languages`, an example sentence in `SummaryLanguage.examples` (check the real model's output: an example with the blank first, like Korean's first try, gets copied literally), the noon/midnight words in `JumpTime`, the browsers' private-window words in `Prefs.defaultPrivateTitles`, and a look at the Welcome window, the timeline and the Settings panes run with `-AppleLanguages`.
 - **Chinese and Japanese:** Vision only reads them with `automaticallyDetectsLanguage` (the default recognizes English alone), which
   changes nothing for the other languages. SQLite's index treats an unbroken run of those characters as one word, so `CJKText` indexes
   each character on its own, with a zero-width separator that is removed whenever text is read back (`texts(for:)`, snippets) and

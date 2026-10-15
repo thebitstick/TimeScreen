@@ -352,7 +352,8 @@ final class WindowInfoTests: XCTestCase {
         XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: [""]))
         let defaults = Prefs.defaultPrivateTitles.split(whereSeparator: \.isNewline).map(String.init)
         for title in ["Nueva pestaña - Google Chrome (Incógnito)", "Nouvel onglet — Navigation privée", "Neuer Tab – Privater Modus - Firefox",
-                      "Nieuw tabblad - Privénavigatie", "新标签页 - Google Chrome (无痕)", "新規タブ - Google Chrome (シークレット)"] {
+                      "Nieuw tabblad - Privénavigatie", "新标签页 - Google Chrome (无痕)", "新規タブ - Google Chrome (シークレット)",
+                      "Nuova scheda - Navigazione in incognito", "Nova guia - Google Chrome (Anônima)", "새 탭 - Google Chrome (시크릿)", "新分頁 - Google Chrome (無痕)"] {
             XCTAssertTrue(Windows.isPrivate(title: title, keywords: defaults), title)
         }
     }
@@ -396,8 +397,8 @@ final class JumpTimeTests: XCTestCase {
         XCTAssertEqual(hours("1530"), ["15:30"])
         XCTAssertEqual(hours("noon"), ["12:00"])
         XCTAssertEqual(hours("midnight"), ["00:00"])
-        for word in ["Mediodía", "midi", "MITTAG", "正午", "中午"] { XCTAssertEqual(hours(word), ["12:00"], word) }
-        for word in ["medianoche", "Minuit", "Mitternacht", "middernacht", "午夜", "真夜中"] { XCTAssertEqual(hours(word), ["00:00"], word) }
+        for word in ["Mediodía", "midi", "MITTAG", "正午", "中午", "Mezzogiorno", "meio-dia", "정오"] { XCTAssertEqual(hours(word), ["12:00"], word) }
+        for word in ["medianoche", "Minuit", "Mitternacht", "middernacht", "午夜", "真夜中", "mezzanotte", "meia-noite", "자정"] { XCTAssertEqual(hours(word), ["00:00"], word) }
     }
 
     func testAmbiguousHoursOfferBothHalvesOfTheDay() {
@@ -1684,7 +1685,7 @@ final class RecognitionTests: XCTestCase {
 }
 
 final class LocalizationTests: XCTestCase {
-    static let languages = ["es", "fr", "de", "nl", "zh-Hans", "ja"]
+    static let languages = ["es", "fr", "de", "nl", "zh-Hans", "ja", "it", "pt-BR", "ko", "zh-Hant"]
 
     private func catalog() throws -> [String: [String: Any]] {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -1745,7 +1746,7 @@ final class LocalizationTests: XCTestCase {
             for (language, localization) in localizations {
                 guard let plural = (localization["variations"] as? [String: Any])?["plural"] as? [String: Any] else { continue }
                 XCTAssertNotNil(plural["other"], "\(language) needs an 'other' form: \(key)")
-                if ["en", "es", "fr", "de", "nl"].contains(language) { XCTAssertNotNil(plural["one"], "\(language) needs a 'one' form: \(key)") }
+                if ["en", "es", "fr", "de", "nl", "it", "pt-BR"].contains(language) { XCTAssertNotNil(plural["one"], "\(language) needs a 'one' form: \(key)") }
             }
         }
     }
@@ -1802,10 +1803,14 @@ final class SummaryLanguageTests: XCTestCase {
         XCTAssertEqual(SummaryLanguage.output(for: "ja") { _ in true }?.name, "Japanese")
         XCTAssertEqual(SummaryLanguage.output(for: "zh-Hans") { _ in true }?.name, "Simplified Chinese")
         XCTAssertEqual(SummaryLanguage.output(for: "zh-Hant") { _ in true }?.name, "Traditional Chinese")
+        XCTAssertEqual(SummaryLanguage.output(for: "zh-TW") { _ in true }?.name, "Traditional Chinese")
+        XCTAssertEqual(SummaryLanguage.output(for: "pt-BR") { _ in true }?.name, "Portuguese")
+        XCTAssertEqual(SummaryLanguage.output(for: "ko") { _ in true }?.name, "Korean")
+        XCTAssertTrue(SummaryLanguage.instructions(SummaryPrompt.instructions, for: SummaryLanguage.output(for: "zh-Hant") { _ in true }).contains("你閱讀了一封關於"))
         XCTAssertNil(SummaryLanguage.output(for: "en") { _ in true })
         XCTAssertNil(SummaryLanguage.output(for: nil) { _ in true })
         XCTAssertNil(SummaryLanguage.output(for: "nl") { _ in false })
-        for code in ["es", "fr", "de", "nl", "zh-Hans", "ja"] {
+        for code in ["es", "fr", "de", "nl", "zh-Hans", "ja", "it", "pt-BR", "ko", "zh-Hant"] {
             XCTAssertNotNil(SummaryLanguage.output(for: code) { _ in true }, code)
         }
     }

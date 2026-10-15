@@ -40,7 +40,7 @@ Apple Intelligence (macOS 26 or later). Nothing is ever sent off your Mac.
 | **Delete** | Delete the screenshot you're looking at, the last 5, 15 or 60 minutes (also from the menu bar), or a whole day |
 | **Storage** | Keep history from 7 days to forever, with a size limit (20 GB by default) that deletes the oldest screenshots first |
 | **Power** | Optionally pauses on battery power or in Low Power Mode, and always when less than 1 GB of disk space is free |
-| **Languages** | English, Spanish, French, German, Dutch, Simplified Chinese and Japanese, following your Mac's language. Chinese and Japanese text on screen is recognized and searchable, and summaries are written in the app's language. The translations were written by an AI and have not been reviewed by native speakers; corrections are welcome |
+| **Languages** | English, Spanish, French, German, Dutch, Italian, Brazilian Portuguese, Korean, Japanese, and Simplified and Traditional Chinese, following your Mac's language. Chinese and Japanese text on screen is recognized and searchable, and summaries are written in the app's language. The translations were written by an AI and have not been reviewed by native speakers; corrections are welcome |
 | **Updates** | Updates itself with [Sparkle](https://sparkle-project.org); updates are signed |
 
 <p align="center">

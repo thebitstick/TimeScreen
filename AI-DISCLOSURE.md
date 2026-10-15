@@ -69,11 +69,12 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   text (also while zoomed), ⇧-drag moves the image, and a pinch zooms toward the fingers instead of the center.
 - Exporting: the author saved images in each format and exported a day on their own Mac, and confirmed ⌘C, Esc, ⌘F and the single-key shortcuts behave
   both inside and outside the search and jump boxes.
-- Translations (Spanish, French, German, Dutch, Simplified Chinese, Japanese): the AI wrote all of them. Tests check that every string has
-  every language, that placeholders match the English and that plurals have the forms each language needs. The AI looked at the Welcome
-  window, the timeline with the Summary panel and every Settings pane (for French, German and Dutch) in throwaway copies run in each
-  language, and fixed the labels that were cut off. The real model wrote summaries in Spanish, Japanese, Chinese and Dutch on fictional
-  data. Chinese and Japanese text drawn into an image is recognized, and unit tests cover finding a word in the middle of a Chinese or
+- Translations (Spanish, French, German, Dutch, Italian, Brazilian Portuguese, Korean, Japanese, Simplified and Traditional Chinese): the AI wrote all of them. Tests check that every string has
+  every language, that placeholders match the English and that plurals have the forms each language needs. The AI looked at a sample of screens, not every screen in every language, in throwaway copies run in each
+  language, and fixed the labels that were cut off: German (Welcome, timeline, General and Summaries panes, shortcut sheet), French
+  (Privacy pane), Dutch (Shortcuts pane), Spanish (timeline), Japanese (timeline, shortcut sheet), Simplified Chinese (Welcome),
+  Portuguese and Korean (timeline) and Italian (Privacy pane). Everything else, including all of Traditional Chinese, was not viewed. The real model wrote summaries in Spanish, Japanese, Simplified and Traditional Chinese, Dutch, Italian, Portuguese and Korean on
+  fictional data (Korean's first try copied a placeholder from its prompt, and the prompt was fixed). Chinese and Japanese text drawn into an image is recognized, and unit tests cover finding a word in the middle of a Chinese or
   Japanese sentence.
 - Updating: installed copies updated themselves through Sparkle four times (0.3.0 to 0.3.4) from signed releases.
 
@@ -90,8 +91,8 @@ features, and ran and used the app on their own Mac, reporting what worked and w
   recap's list was found cut off and fixed). The author has since tried them on their own history and found them quick but basic; background
   summaries over days of use are still untested. A real example of the limits: while the author watched a stream, chat text in the video was read as
   part of the screen, and a recap turned a chat mention of Bitcoin into "bitcoin burger".
-- The translations by anyone who speaks the languages: they are AI-written, so wording may sound stiff or be wrong, and a Mac set to
-  Traditional Chinese falls back to English. French and German summaries were not generated; Chinese and Japanese text on a real screen (not
+- The translations by anyone who speaks the languages: they are AI-written, so wording may sound stiff or be wrong, and Portuguese
+  from Portugal uses the Brazilian wording. French and German summaries were not generated; Chinese and Japanese text on a real screen (not
   drawn text) was not recognized or searched; the shortcut sheet, the app list's Add button and VoiceOver were not used.
 - Clicking through the welcome window on a clean install (Done, the permission button and the relaunch afterwards).
 - Private browsing detection in Safari, which is not possible: Safari does not mark private windows in their

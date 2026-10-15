@@ -54,6 +54,16 @@ enum Prefs {
         シークレット
         プライベートブラウズ
         プライベートブラウジング
+        Navigazione in incognito
+        Navigazione privata
+        Anônima
+        Anónimo
+        Navegação privativa
+        Navegação privada
+        시크릿
+        사생활 보호
+        無痕
+        隱私瀏覽
         """
 
     static func register() {

@@ -175,7 +175,11 @@ enum SummaryLanguage {
         "fr": ("Vous avez lu un e-mail sur…", "Vous avez…"),
         "de": ("Du hast eine E-Mail über … gelesen", "Du hast…"),
         "nl": ("Je las een e-mail over…", "Je…"),
-        "zh": ("你阅读了一封关于……的邮件", "你……"),
+        "it": ("Hai letto un'email su…", "Hai…"),
+        "pt": ("Você leu um e-mail sobre…", "Você…"),
+        "ko": ("이메일을 읽으셨습니다. 주제는…", "다음과 같은 활동을 하셨습니다…"),
+        "zh-Hans": ("你阅读了一封关于……的邮件", "你……"),
+        "zh-Hant": ("你閱讀了一封關於……的郵件", "你……"),
         "ja": ("あなたは…についてのメールを読みました", "あなたは…"),
     ]
 
@@ -184,13 +188,17 @@ enum SummaryLanguage {
     static func output(for localization: String?, supports: (Locale) -> Bool) -> SummaryOutputLanguage? {
         guard let code = localization, supports(Locale(identifier: code)) else { return nil }
         let language = Locale.Language(identifier: code)
-        guard let languageCode = language.languageCode?.identifier, let sample = examples[languageCode] else { return nil }
-        let name: String
+        guard let languageCode = language.languageCode?.identifier else { return nil }
+        let key: String, name: String
         if languageCode == "zh" {
-            name = language.script?.identifier == "Hant" ? "Traditional Chinese" : "Simplified Chinese"
+            let traditional = language.script?.identifier == "Hant" || ["TW", "HK", "MO"].contains(language.region?.identifier ?? "")
+            key = traditional ? "zh-Hant" : "zh-Hans"
+            name = traditional ? "Traditional Chinese" : "Simplified Chinese"
         } else {
+            key = languageCode
             name = Locale(identifier: "en").localizedString(forLanguageCode: languageCode) ?? languageCode
         }
+        guard let sample = examples[key] else { return nil }
         return SummaryOutputLanguage(name: name, example: sample.example, rollupExample: sample.rollup)
     }
 
