@@ -44,7 +44,7 @@ final class Authenticator {
         guard !inProgress else { return false }
         inProgress = true
         defer { inProgress = false }
-        guard await Self.evaluate("Open your screen history") else { return false }
+        guard await Self.evaluate(String(localized: "Open your screen history")) else { return false }
         window.markUnlocked()
         return true
     }

@@ -50,8 +50,8 @@ struct SearchQuery: Equatable {
         guard !included.isEmpty else { return nil }
         func render(_ term: Term) -> String {
             switch term {
-            case .word(let word): "\"\(word)\"*"
-            case .phrase(let phrase): "\"\(phrase)\""
+            case .word(let word): "\"\(CJKText.spaced(word))\"*"
+            case .phrase(let phrase): "\"\(CJKText.spaced(phrase))\""
             }
         }
         let positive = included.map(render).joined(separator: " ")

@@ -7,7 +7,7 @@ struct LaunchAtLoginToggle: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Toggle("Open TimeScreen at login", isOn: $enabled)
+            Toggle("Open TimeScreen at login", isOn: $enabled).fixedSize(horizontal: false, vertical: true)
                 .onChange(of: enabled) { _, on in
                     do {
                         if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }

@@ -157,7 +157,7 @@ actor Database {
                     [.double(date.timeIntervalSince1970), .text(app), .text(title), .text(path), .int(Int64(display)), .text(bundle)])
             let id = sqlite3_last_insert_rowid(handle)
             try run("INSERT INTO frames_fts(rowid, text, app, title) VALUES(?,?,?,?)",
-                    [.int(id), .text(text), .text(app), .text(title)])
+                    [.int(id), .text(CJKText.spaced(text)), .text(CJKText.spaced(app)), .text(CJKText.spaced(title))])
             if let boxes { try run("INSERT INTO boxes(frame_id, data) VALUES(?,?)", [.int(id), .blob(boxes)]) }
             return id
         }
@@ -253,7 +253,7 @@ actor Database {
         var result: [Int64: String] = [:]
         for chunk in stride(from: 0, to: ids.count, by: 400).map({ Array(ids[$0..<min($0 + 400, ids.count)]) }) {
             let marks = Array(repeating: "?", count: chunk.count).joined(separator: ",")
-            let rows = try rows("SELECT rowid, text FROM frames_fts WHERE rowid IN (\(marks))", chunk.map { .int($0) }) { (sqlite3_column_int64($0, 0), Self.text($0, 1)) }
+            let rows = try rows("SELECT rowid, text FROM frames_fts WHERE rowid IN (\(marks))", chunk.map { .int($0) }) { (sqlite3_column_int64($0, 0), CJKText.unspaced(Self.text($0, 1))) }
             for (id, text) in rows { result[id] = text }
         }
         return result
@@ -345,7 +345,7 @@ actor Database {
                   from.map { Value.double($0.timeIntervalSince1970) } ?? .null, from.map { Value.double($0.timeIntervalSince1970) } ?? .null,
                   to.map { Value.double($0.timeIntervalSince1970) } ?? .null, to.map { Value.double($0.timeIntervalSince1970) } ?? .null,
                   .int(Int64(limit))]) {
-            SearchHit(frame: Self.frame($0), snippet: Self.text($0, 8))
+            SearchHit(frame: Self.frame($0), snippet: CJKText.unspaced(Self.text($0, 8)))
         }
     }
 

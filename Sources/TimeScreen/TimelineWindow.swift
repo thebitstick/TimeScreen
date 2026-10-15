@@ -42,6 +42,7 @@ struct TimelineWindow: View {
     @State private var starredFrames: [Frame] = []
     @State private var previewSize = CGSize(width: 1, height: 1)
     @State private var pointer = PointerTracker()
+    @State private var showShortcuts = false
     @State private var panStart: CGSize?
     @State private var pinchStart: PinchStart?
     @State private var fullText = ""
@@ -149,6 +150,11 @@ struct TimelineWindow: View {
             pointer.location = nil
             return .handled
         }
+        .onKeyPress(characters: ["?"], phases: .down) { _ in
+            guard !isTypingInTextField else { return .ignored }
+            showShortcuts.toggle()
+            return .handled
+        }
         .onKeyPress(characters: ["s"], phases: .down) { press in
             guard !isTypingInTextField else { return .ignored }
             guard press.modifiers.isEmpty else { return .ignored }
@@ -180,24 +186,22 @@ struct TimelineWindow: View {
         .task(id: selectedID) { await loadBoxes() }
         .confirmationDialog(deleteRequest?.title ?? "", isPresented: Binding(get: { deleteRequest != nil }, set: { if !$0 { deleteRequest = nil } }),
                             titleVisibility: .visible, presenting: deleteRequest) { request in
-            Button("Delete \(request.frames.count) \(request.frames.count == 1 ? "Frame" : "Frames")", role: .destructive) {
+            Button("Delete \(request.frames.count) Screenshots", role: .destructive) {
                 Task { await performDelete(request) }
             }
         } message: { request in
-            let starred = request.frames.filter(\.starred).count
-            Text("The screenshots and their search text are removed. This can't be undone."
-                 + (starred > 0 ? " \(starred) of them \(starred == 1 ? "is" : "are") starred, and starred screenshots go too." : ""))
+            Text(DeleteText.removal(count: request.frames.count, starred: request.frames.filter(\.starred).count))
         }
-        .confirmationDialog("Never record \(excludeRequest?.app ?? "")?",
+        .confirmationDialog("Never capture \(excludeRequest?.app ?? "")?",
                             isPresented: Binding(get: { excludeRequest != nil }, set: { if !$0 { excludeRequest = nil } }),
                             titleVisibility: .visible, presenting: excludeRequest) { request in
             if let bundleID = request.bundleID {
-                Button("Never Record \(request.app)") {
+                Button("Never Capture \(request.app)") {
                     Prefs.excludeApp(bundleID)
-                    flash("\(request.app) won't be recorded")
+                    flash("\(request.app) won't be captured")
                 }
                 if !request.frames.isEmpty {
-                    Button("Never Record and Delete \(request.frames.count) \(request.frames.count == 1 ? "Frame" : "Frames")", role: .destructive) {
+                    Button("Never Capture and Delete \(request.frames.count) Screenshots", role: .destructive) {
                         Prefs.excludeApp(bundleID)
                         Task { await performDelete(DeleteRequest(title: "", frames: request.frames)) }
                     }
@@ -205,9 +209,9 @@ struct TimelineWindow: View {
             }
         } message: { request in
             if request.bundleID != nil {
-                Text("While \(request.app) is the topmost window, nothing is captured. Screenshots already taken stay unless you delete them. You can undo this in Settings → Privacy.")
+                Text("While \(request.app) is the front app, nothing is captured. Screenshots already taken stay unless you delete them. You can undo this in Settings → Privacy.")
             } else {
-                Text("TimeScreen couldn't identify \(request.app). Add its bundle identifier under Settings → Privacy → Never capture.")
+                Text("TimeScreen couldn't identify \(request.app). Add it under Settings → Privacy → Never capture.")
             }
         }
         .onChange(of: recorder.revision) {
@@ -259,10 +263,19 @@ struct TimelineWindow: View {
             .frame(maxWidth: 420)
             .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
 
-            Button(action: onClose) { Image(systemName: "xmark") }
-                .buttonStyle(.plain)
-                .help("Close (esc)")
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack(spacing: 14) {
+                Button { showShortcuts.toggle() } label: { Image(systemName: "keyboard") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Keyboard shortcuts (?)")
+                    .accessibilityLabel("Keyboard shortcuts")
+                    .popover(isPresented: $showShortcuts, arrowEdge: .bottom) { ShortcutsPopover() }
+                Button(action: onClose) { Image(systemName: "xmark") }
+                    .buttonStyle(.plain)
+                    .help("Close (Esc)")
+                    .accessibilityLabel("Close")
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, 20)
         .padding(.top, 34) // clears the fullscreen menu bar reveal area
@@ -279,13 +292,16 @@ struct TimelineWindow: View {
         .onChange(of: display) { keepSelectionVisible() }
     }
 
-    static func displayName(_ index: Int) -> String { index == 0 ? "Main Display" : "Display \(index + 1)" }
+    static func displayName(_ index: Int) -> String {
+        index == 0 ? String(localized: "Main Display") : String(localized: "Display \(index + 1)")
+    }
 
     private var recapButton: some View {
         Button { showRecap.toggle() } label: { Image(systemName: "sparkles") }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("A recap of this day, written on this Mac")
+            .accessibilityLabel("Day recap")
             .popover(isPresented: $showRecap, arrowEdge: .bottom) {
                 DayRecapView(day: day, db: recorder.db, summarizer: summarizer)
             }
@@ -301,6 +317,7 @@ struct TimelineWindow: View {
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
         .help("Starred screenshots")
+        .accessibilityLabel("Starred screenshots")
         .popover(isPresented: $showStarred, arrowEdge: .bottom) {
             if starredFrames.isEmpty {
                 Text("Star a screenshot (S) to keep it forever.\nStarred ones are never deleted by retention or the size limit.")
@@ -340,7 +357,7 @@ struct TimelineWindow: View {
             Image(systemName: "clock").foregroundStyle(.secondary)
             TextField("Jump to time", text: $jumpText)
                 .textFieldStyle(.plain)
-                .frame(width: 96)
+                .frame(width: 128)
                 .onSubmit(jump)
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -386,8 +403,10 @@ struct TimelineWindow: View {
                     Image(nsImage: icon).resizable().frame(width: 16, height: 16)
                     Text(appFilter)
                 }
+            } else if let appFilter {
+                Label(appFilter, systemImage: "square.grid.2x2")
             } else {
-                Label(appFilter ?? "All Apps", systemImage: "square.grid.2x2")
+                Label("All Apps", systemImage: "square.grid.2x2")
             }
         }
         .menuStyle(.borderlessButton)
@@ -415,12 +434,15 @@ struct TimelineWindow: View {
                             .background(.black.opacity(0.6), in: Capsule())
                             .padding(10)
                             .help("Reset the zoom (⌘0). Drag to select text; hold ⇧ and drag to move.")
+                            .accessibilityLabel("Reset zoom")
                     }
                 }
                 .padding(.horizontal, 20)
             } else if frames.isEmpty {
-                Text(recorder.isRecording ? "Nothing captured on this day yet" : "Recording is paused")
-                    .foregroundStyle(.secondary)
+                Group {
+                    if recorder.isRecording { Text("Nothing captured on this day yet") } else { Text("Recording is paused") }
+                }
+                .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -506,7 +528,7 @@ struct TimelineWindow: View {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        statusMessage = selection == nil ? "Copied all text" : "Copied \(words.count) \(words.count == 1 ? "word" : "words")"
+        statusMessage = selection == nil ? String(localized: "Copied all text") : String(localized: "Copied \(words.count) words")
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             statusMessage = nil
@@ -516,12 +538,12 @@ struct TimelineWindow: View {
     private var exportMenu: some View {
         Menu {
             if let frame = current {
-                Button("Save Image…") { Exporter.saveImage(of: frame, root: recorder.framesRoot, window: TimelineController.shared.overlayWindow, done: flash) }
-                Button("Copy Image") { flash(Exporter.copyImage(of: frame, root: recorder.framesRoot)) }
+                Button("Save Image…") { Exporter.saveImage(of: frame, root: recorder.framesRoot, window: TimelineController.shared.overlayWindow, done: { flash(verbatim: $0) }) }
+                Button("Copy Image") { flash(verbatim: Exporter.copyImage(of: frame, root: recorder.framesRoot)) }
                 Button("Save Text…") {
                     Task {
                         let text = (try? await recorder.db.texts(for: [frame.id]))?[frame.id] ?? ""
-                        Exporter.saveText(of: frame, text: text, window: TimelineController.shared.overlayWindow, done: flash)
+                        Exporter.saveText(of: frame, text: text, window: TimelineController.shared.overlayWindow, done: { flash(verbatim: $0) })
                     }
                 }
                 Button("Show File in Finder") { NSWorkspace.shared.activateFileViewerSelecting([recorder.framesRoot.appendingPathComponent(frame.path)]) }
@@ -537,6 +559,7 @@ struct TimelineWindow: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Save or export screenshots and their text")
+        .accessibilityLabel("Save or export")
     }
 
     private func exportDay() {
@@ -546,7 +569,7 @@ struct TimelineWindow: View {
         Task {
             let texts = (try? await recorder.db.texts(for: frames.map(\.id))) ?? [:]
             Exporter.exportDay(frames: frames, texts: texts, title: title, root: recorder.framesRoot,
-                               window: TimelineController.shared.overlayWindow, done: flash)
+                               window: TimelineController.shared.overlayWindow, done: { flash(verbatim: $0) })
         }
     }
 
@@ -556,22 +579,22 @@ struct TimelineWindow: View {
         Task {
             let texts = (try? await recorder.db.texts(for: frames.map(\.id))) ?? [:]
             Exporter.saveTranscript(frames: frames, texts: texts, title: title,
-                                    window: TimelineController.shared.overlayWindow, done: flash)
+                                    window: TimelineController.shared.overlayWindow, done: { flash(verbatim: $0) })
         }
     }
 
     private var deleteMenu: some View {
         Menu {
             if let frame = current {
-                Button("Delete This Frame…") { prepareDelete("Delete this frame?") { [frame] } }
+                Button("Delete This Screenshot…") { prepareDelete(String(localized: "Delete this screenshot?")) { [frame] } }
             }
             Divider()
-            Button("Delete Last 5 Minutes…") { prepareDelete("Delete the last 5 minutes?") { await recorder.frames(lastMinutes: 5) } }
-            Button("Delete Last 15 Minutes…") { prepareDelete("Delete the last 15 minutes?") { await recorder.frames(lastMinutes: 15) } }
-            Button("Delete Last Hour…") { prepareDelete("Delete the last hour?") { await recorder.frames(lastMinutes: 60) } }
+            Button("Delete Last 5 Minutes…") { prepareDelete(DeleteText.recentTitle(minutes: 5)) { await recorder.frames(lastMinutes: 5) } }
+            Button("Delete Last 15 Minutes…") { prepareDelete(DeleteText.recentTitle(minutes: 15)) { await recorder.frames(lastMinutes: 15) } }
+            Button("Delete Last Hour…") { prepareDelete(DeleteText.recentTitle(minutes: 60)) { await recorder.frames(lastMinutes: 60) } }
             Divider()
             Button("Delete This Day…") {
-                prepareDelete("Delete \(day.formatted(.dateTime.weekday(.wide).month().day()))?") { (try? await recorder.db.frames(on: day)) ?? [] }
+                prepareDelete(String(localized: "Delete \(day.formatted(.dateTime.weekday(.wide).month().day()))?")) { (try? await recorder.db.frames(on: day)) ?? [] }
             }
         } label: {
             Image(systemName: "trash")
@@ -579,9 +602,14 @@ struct TimelineWindow: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Delete screenshots from your history")
+        .accessibilityLabel("Delete")
     }
 
-    private func flash(_ message: String) {
+    private func flash(_ message: LocalizedStringResource) {
+        flash(verbatim: String(localized: message))
+    }
+
+    private func flash(verbatim message: String) {
         statusMessage = message
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -602,6 +630,7 @@ struct TimelineWindow: View {
         let defaults = UserDefaults.standard
         if let text = defaults.string(forKey: "timelineQuery") { query = text }
         if defaults.bool(forKey: "showRecap") { showRecap = true }
+        if defaults.bool(forKey: "showShortcuts") { showShortcuts = true }
         if defaults.object(forKey: "previewZoom") != nil { zoom.set(scale: CGFloat(defaults.double(forKey: "previewZoom")), in: previewSize) }
         if let text = defaults.string(forKey: "timelineDay") {
             let formatter = DateFormatter()
@@ -641,7 +670,7 @@ struct TimelineWindow: View {
                 select(last.id, animated: false)
             }
         }
-        flash("Deleted \(removed.count) \(removed.count == 1 ? "frame" : "frames")")
+        flash("Deleted \(removed.count) screenshots")
     }
 
     private var info: some View {
@@ -656,12 +685,15 @@ struct TimelineWindow: View {
                 Button(action: toggleStar) { Image(systemName: frame.starred ? "star.fill" : "star") }
                     .buttonStyle(.plain).foregroundStyle(frame.starred ? Color.yellow : .secondary)
                     .help("Star this screenshot to keep it forever (S)")
+                    .accessibilityLabel(frame.starred ? Text("Remove star") : Text("Star screenshot"))
                 Button { showText.toggle() } label: { Image(systemName: "text.alignleft") }
                     .buttonStyle(.plain).foregroundStyle(showText ? Color.accentColor : .secondary)
                     .help("Show the text recognized in this screenshot (T)")
+                    .accessibilityLabel("Text panel")
                 Button { prepareExclusion(frame) } label: { Image(systemName: "nosign") }
                     .buttonStyle(.plain).foregroundStyle(.secondary)
-                    .help("Never record \(frame.app)")
+                    .help("Never capture \(frame.app)")
+                    .accessibilityLabel("Never capture \(frame.app)")
                 exportMenu
                 deleteMenu
                 if !frameText.isEmpty {
@@ -739,7 +771,7 @@ struct TimelineWindow: View {
                 .pickerStyle(.menu).labelsHidden().fixedSize()
                 Spacer()
             }
-            Text(hits.count >= 200 ? "200+ results" : "\(hits.count) \(hits.count == 1 ? "result" : "results")")
+            Text(hits.count >= 200 ? String(localized: "200+ results") : String(localized: "\(hits.count) results"))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16).padding(.vertical, 10)

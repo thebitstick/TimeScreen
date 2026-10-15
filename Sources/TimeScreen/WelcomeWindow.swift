@@ -20,7 +20,7 @@ final class WelcomeController: NSObject, NSWindowDelegate {
         }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 100),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Welcome to TimeScreen"
+        window.title = String(localized: "Welcome to TimeScreen")
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.contentView = NSHostingView(rootView: WelcomeView(recorder: .shared) { [weak self] in self?.window?.close() })
@@ -41,7 +41,7 @@ private struct WelcomeView: View {
     @AppStorage(Prefs.hotkeyLabel) private var label = "T"
     let onDone: () -> Void
 
-    private var shortcut: String { label.isEmpty ? "your shortcut (none set)" : HotKey.describe(modifiers: UInt32(mods), label: label) }
+    private var shortcut: String { label.isEmpty ? String(localized: "your shortcut (none set)") : HotKey.describe(modifiers: UInt32(mods), label: label) }
 
     var body: some View {
         VStack(spacing: 20) {
@@ -55,8 +55,9 @@ private struct WelcomeView: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 step(1, "Allow Screen Recording",
-                     "macOS needs your permission before TimeScreen can capture the screen."
-                        + (recorder.hasPermission ? "" : " After turning it on in System Settings, quit and reopen TimeScreen if it doesn't switch to Allowed.")) {
+                     recorder.hasPermission
+                        ? "macOS needs your permission before TimeScreen can capture the screen."
+                        : "macOS needs your permission before TimeScreen can capture the screen. After turning it on in System Settings, quit and reopen TimeScreen if it doesn't switch to Allowed.") {
                     if recorder.hasPermission {
                         Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
                     } else {
@@ -84,7 +85,7 @@ private struct WelcomeView: View {
         .frame(width: 540)
     }
 
-    private func step<Trailing: View>(_ number: Int, _ title: String, _ detail: String, @ViewBuilder trailing: () -> Trailing) -> some View {
+    private func step<Trailing: View>(_ number: Int, _ title: LocalizedStringKey, _ detail: LocalizedStringKey, @ViewBuilder trailing: () -> Trailing) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(number)").font(.headline).foregroundStyle(.white)
                 .frame(width: 28, height: 28).background(Color.accentColor, in: Circle())

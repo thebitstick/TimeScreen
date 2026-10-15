@@ -2,15 +2,16 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var recorder: Recorder
+    @AppStorage("settingsTab") private var tab = 0
 
     var body: some View {
-        TabView {
-            GeneralPane().tabItem { Label("General", systemImage: "gearshape") }
-            ScreenPane().tabItem { Label("Screen", systemImage: "display") }
-            SummariesPane().tabItem { Label("Summaries", systemImage: "sparkles") }
-            PrivacyPane().tabItem { Label("Privacy", systemImage: "lock") }
-            StoragePane(recorder: recorder).tabItem { Label("Storage", systemImage: "externaldrive") }
-            ShortcutsPane().tabItem { Label("Shortcuts", systemImage: "keyboard") }
+        TabView(selection: $tab) {
+            GeneralPane().tabItem { Label("General", systemImage: "gearshape") }.tag(0)
+            CapturePane().tabItem { Label("Capture", systemImage: "display") }.tag(1)
+            SummariesPane().tabItem { Label("Summaries", systemImage: "sparkles") }.tag(2)
+            PrivacyPane().tabItem { Label("Privacy", systemImage: "lock") }.tag(3)
+            StoragePane(recorder: recorder).tabItem { Label("Storage", systemImage: "externaldrive") }.tag(4)
+            ShortcutsPane().tabItem { Label("Shortcuts", systemImage: "keyboard") }.tag(5)
         }
         .scenePadding()
         .frame(width: 520)
@@ -61,8 +62,8 @@ private struct SettingsWindowPlacer: NSViewRepresentable {
 }
 
 private struct Note: View {
-    let text: String
-    init(_ text: String) { self.text = text }
+    let text: LocalizedStringKey
+    init(_ text: LocalizedStringKey) { self.text = text }
 
     var body: some View {
         Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -78,7 +79,7 @@ private struct GeneralPane: View {
             .padding(.vertical, 5)
             LabeledContent("Updates:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Check for updates automatically", isOn: $checksForUpdates)
+                    Toggle("Check for updates automatically", isOn: $checksForUpdates).fixedSize(horizontal: false, vertical: true)
                         .onChange(of: checksForUpdates) { _, on in Updater.shared.automaticallyChecks = on }
                     if Updater.isDevelopmentBuild {
                         Note("Development build: new versions are offered but never installed automatically.")
@@ -107,7 +108,7 @@ private struct GeneralPane: View {
     }
 }
 
-private struct ScreenPane: View {
+private struct CapturePane: View {
     @AppStorage(Prefs.interval) private var interval = 5.0
     @AppStorage(Prefs.ocr) private var ocr = true
     @AppStorage(Prefs.allDisplays) private var allDisplays = true
@@ -117,36 +118,36 @@ private struct ScreenPane: View {
 
     var body: some View {
         Form {
-            Picker("Capture:", selection: $interval) {
+            Picker("Frequency:", selection: $interval) {
                 ForEach([2.0, 5, 10, 30, 60], id: \.self) { Text("Every \(Int($0)) seconds").tag($0) }
             }
             .fixedSize()
             .padding(.vertical, 5)
             LabeledContent("When away:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Capture less often when I'm away", isOn: $backoffWhenAway)
+                    Toggle("Capture less often when I'm away", isOn: $backoffWhenAway).fixedSize(horizontal: false, vertical: true)
                     Note("After a minute without keyboard or mouse input captures slow to every 15 seconds, and to every 30 after five minutes. They return to normal the moment you're back.")
                 }
             }
             .padding(.vertical, 5)
             LabeledContent("Displays:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Capture every display", isOn: $allDisplays)
+                    Toggle("Capture every display", isOn: $allDisplays).fixedSize(horizontal: false, vertical: true)
                     Note("Turn off to capture only the main display. The timeline has a picker when you have more than one.")
                 }
             }
             .padding(.vertical, 5)
             LabeledContent("Power:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Pause on battery power", isOn: $pauseOnBattery)
-                    Toggle("Pause in Low Power Mode", isOn: $pauseInLowPower)
+                    Toggle("Pause on battery power", isOn: $pauseOnBattery).fixedSize(horizontal: false, vertical: true)
+                    Toggle("Pause in Low Power Mode", isOn: $pauseInLowPower).fixedSize(horizontal: false, vertical: true)
                     Note("Capturing and reading text uses energy. Recording resumes by itself when the condition ends. TimeScreen also pauses when less than 1 GB of disk space is free.")
                 }
             }
             .padding(.vertical, 5)
             LabeledContent("Search:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Make screen text searchable", isOn: $ocr)
+                    Toggle("Make screen text searchable", isOn: $ocr).fixedSize(horizontal: false, vertical: true)
                     Note("Reads the text in each screenshot on this Mac, so you can find it later.")
                 }
             }
@@ -180,18 +181,18 @@ private struct SummariesPane: View {
             .padding(.vertical, 5)
             LabeledContent("Automatic:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Write summaries in the background", isOn: $automatic)
+                    Toggle("Write summaries in the background", isOn: $automatic).fixedSize(horizontal: false, vertical: true)
                     Note("Finished 15-minute stretches and hours are written ahead of time, so a day's recap only has to put them together. It only runs while the Mac is idle and plugged in, and not in Low Power Mode, and stops as soon as you use the Mac. Turn it off to write summaries only when you ask.")
                 }
             }
             .padding(.vertical, 5)
             LabeledContent("Limits:") {
-                Note("Apple Intelligence reads about 8,000 tokens at a time, roughly 20,000 characters, so long stretches are boiled down to their new lines first. Each summary takes a few seconds, and a whole day can take a few minutes. Summaries can be wrong or thin when a screen has little text, so check the screenshot.")
+                Note("Apple Intelligence can only read a limited amount of text at once, so long stretches are boiled down to their new lines first. Each summary takes a few seconds, and a whole day can take a few minutes. Summaries can be wrong or thin when a screen has little text, so check the screenshot.")
             }
             .padding(.vertical, 5)
             LabeledContent("Stored:") {
                 HStack {
-                    Text("\(stored) \(stored == 1 ? "summary" : "summaries")")
+                    Text("\(stored) summaries")
                     Button("Delete All…", role: .destructive) { confirmDelete = true }.disabled(stored == 0)
                 }
             }
@@ -221,11 +222,11 @@ private struct PrivacyPane: View {
             set: { on in
                 guard on else { requireAuth = false; lockMessage = nil; return }
                 Task {
-                    if await Authenticator.evaluate("Turn on the timeline lock") {
+                    if await Authenticator.evaluate(String(localized: "Turn on the timeline lock")) {
                         requireAuth = true
                         lockMessage = nil
                     } else {
-                        lockMessage = "The lock wasn't turned on. Authenticate with Touch ID or your password to enable it."
+                        lockMessage = String(localized: "The lock wasn't turned on. Authenticate with Touch ID or your password to enable it.")
                     }
                 }
             })
@@ -235,7 +236,7 @@ private struct PrivacyPane: View {
         Form {
             LabeledContent("Timeline lock:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Require Touch ID or your password to open the timeline", isOn: lockToggle)
+                    Toggle("Require Touch ID or your password to open the timeline", isOn: lockToggle).fixedSize(horizontal: false, vertical: true)
                     if requireAuth {
                         Picker("Ask again:", selection: $authGrace) {
                             Text("Every time").tag(0.0)
@@ -252,31 +253,87 @@ private struct PrivacyPane: View {
             .padding(.vertical, 5)
             LabeledContent("Private windows:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Don't capture a screen showing a private window", isOn: $skipPrivate)
+                    Toggle("Don't capture a screen showing a private window", isOn: $skipPrivate).fixedSize(horizontal: false, vertical: true)
                     if skipPrivate {
                         TextEditor(text: $privateTitles)
                             .font(.body.monospaced())
-                            .frame(height: 70)
+                            .frame(height: 100)
                             .border(Color.primary.opacity(0.15))
                     }
                     Note("A window is treated as private when its title contains one of these words, one per line. Browsers word this differently, so add your own.")
-                    Note("Safari doesn't mark private windows in their titles, so they can't be detected. Add com.apple.Safari to Never capture below, or use Pause For in the menu bar.")
+                    Note("Safari doesn't mark private windows in their titles, so they can't be detected. Add Safari to Never capture below, or use Pause For in the menu bar.")
                 }
             }
             .padding(.vertical, 5)
             LabeledContent("Never capture:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    TextEditor(text: $excluded)
-                        .font(.body.monospaced())
-                        .frame(height: 90)
-                        .border(Color.primary.opacity(0.15))
-                    Note("Bundle identifiers, one per line. Nothing is recorded while one of these apps is frontmost.")
+                    ExcludedAppsList(raw: $excluded)
+                    Note("Nothing is captured while one of these apps is the front app.")
                 }
             }
             .padding(.vertical, 5)
         }
         .formStyle(.columns)
         .padding(.vertical, 8)
+    }
+}
+
+private struct ExcludedAppsList: View {
+    @Binding var raw: String
+    @State private var selection: String?
+
+    private var ids: [String] { ExcludedApps.parse(raw) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            List(ids, id: \.self, selection: $selection) { id in
+                HStack(spacing: 8) {
+                    Image(nsImage: icon(for: id)).resizable().frame(width: 18, height: 18)
+                    if let name = name(for: id) {
+                        Text(name)
+                    } else {
+                        Text(id).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        Spacer()
+                        Text("Not installed").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(height: 110)
+            .border(Color.primary.opacity(0.15))
+            HStack(spacing: 4) {
+                Button { chooseApps() } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("Add an app")
+                Button {
+                    if let selection { raw = ExcludedApps.removing(selection, from: raw) }
+                    selection = nil
+                } label: { Image(systemName: "minus") }
+                    .accessibilityLabel("Remove the selected app")
+                    .disabled(selection == nil)
+            }
+        }
+    }
+
+    private func url(for id: String) -> URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) }
+
+    private func name(for id: String) -> String? {
+        url(for: id).map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
+    }
+
+    private func icon(for id: String) -> NSImage {
+        url(for: id).map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage()
+    }
+
+    private func chooseApps() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = true
+        panel.message = String(localized: "Choose the apps TimeScreen should never capture.")
+        panel.prompt = String(localized: "Add")
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            if let id = Bundle(url: url)?.bundleIdentifier { raw = ExcludedApps.adding(id, to: raw) }
+        }
     }
 }
 
@@ -310,7 +367,7 @@ private struct StoragePane: View {
             .padding(.vertical, 5)
             LabeledContent("Space:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Shrink screenshots after a day", isOn: $compactOld)
+                    Toggle("Shrink screenshots after a day", isOn: $compactOld).fixedSize(horizontal: false, vertical: true)
                     Note("Older screenshots are shrunk to a smaller size once they're a day old.")
                 }
             }
@@ -323,14 +380,14 @@ private struct StoragePane: View {
             }
             .padding(.vertical, 5)
             LabeledContent("Delete:") {
-                Button("Delete All Captures…", role: .destructive) { confirmDelete = true }
+                Button("Delete All Screenshots…", role: .destructive) { confirmDelete = true }
             }
             .padding(.vertical, 5)
         }
         .formStyle(.columns)
         .padding(.vertical, 8)
         .task(id: recorder.revision) { usage = await recorder.diskUsage() }
-        .confirmationDialog("Delete every capture?", isPresented: $confirmDelete) {
+        .confirmationDialog("Delete every screenshot?", isPresented: $confirmDelete) {
             Button("Delete All", role: .destructive) { Task { await recorder.deleteAll() } }
         } message: {
             Text("Screenshots and the search index are removed. This can't be undone.")
@@ -366,7 +423,7 @@ private struct ShortcutsPane: View {
             .padding(.vertical, 5)
             LabeledContent("Scroll to open:") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Use Command + Shift + scroll to open the timeline", isOn: $scrollToOpen)
+                    Toggle("Use Command + Shift + scroll to open the timeline", isOn: $scrollToOpen).fixedSize(horizontal: false, vertical: true)
                     Note("Hold both keys and scroll with two fingers. Keep scrolling to scrub through time.")
                 }
             }

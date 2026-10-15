@@ -2,8 +2,14 @@ import Foundation
 
 protocol TextGenerator: Sendable {
     var contextSize: Int { get }
+    /// The language summaries should be written in, or nil to leave it to the model (English).
+    var outputLanguage: SummaryOutputLanguage? { get }
     func tokenCount(_ text: String) async -> Int
     func generate(instructions: String, prompt: String, maxTokens: Int) async throws -> String
+}
+
+extension TextGenerator {
+    var outputLanguage: SummaryOutputLanguage? { nil }
 }
 
 enum SummaryError: LocalizedError, Equatable {
@@ -15,9 +21,9 @@ enum SummaryError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .noText: "There is no recognized text to summarize here."
-        case .tooLong: "There was too much text for Apple Intelligence to read, even after trimming it."
-        case .empty: "Apple Intelligence didn't return a summary."
+        case .noText: String(localized: "There is no recognized text to summarize here.")
+        case .tooLong: String(localized: "There was too much text for Apple Intelligence to read, even after trimming it.")
+        case .empty: String(localized: "Apple Intelligence didn't return a summary.")
         case .unavailable(let reason): reason
         case .failed(let reason): reason
         }
@@ -202,8 +208,9 @@ actor SummaryService {
     }
 
     /// Trims the prompt's text until the whole request fits the model's window, and again if the model still says it is too long.
-    private func generate(instructions: String, outputTokens: Int = SummaryService.outputTokens,
+    private func generate(instructions base: String, outputTokens: Int = SummaryService.outputTokens,
                           build: (_ characters: Int) -> String) async throws -> String {
+        let instructions = SummaryLanguage.instructions(base, for: generator.outputLanguage)
         let budget = min(max(generator.contextSize - outputTokens - 300, 100), Self.inputTokens)
         var characters = min(14_000, budget * 3)
         for _ in 0..<5 {

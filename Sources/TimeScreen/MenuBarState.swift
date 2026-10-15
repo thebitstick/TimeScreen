@@ -8,10 +8,10 @@ enum MenuBarState {
     }
 
     static func description(hasPermission: Bool, isRecording: Bool, skip: SkipReason?, hasError: Bool) -> String {
-        if !hasPermission { return "TimeScreen needs Screen Recording access" }
-        if !isRecording { return "TimeScreen is paused" }
+        if !hasPermission { return String(localized: "TimeScreen needs Screen Recording access") }
+        if !isRecording { return String(localized: "TimeScreen is paused") }
         if let skip { return skip.message }
-        if hasError { return "TimeScreen hit an error while capturing" }
-        return "TimeScreen is recording"
+        if hasError { return String(localized: "TimeScreen couldn't capture the screen. Open the menu for details.") }
+        return String(localized: "TimeScreen is recording")
     }
 }

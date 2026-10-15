@@ -136,8 +136,8 @@ struct ShortcutRecorder: View {
     }
 
     private var fieldText: String {
-        if recording { return "Type shortcut" }
-        return label.isEmpty ? "None" : HotKey.describe(modifiers: UInt32(mods), label: label)
+        if recording { return String(localized: "Type shortcut") }
+        return label.isEmpty ? String(localized: "None") : HotKey.describe(modifiers: UInt32(mods), label: label)
     }
 
     private func clear() {

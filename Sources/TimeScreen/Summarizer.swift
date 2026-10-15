@@ -23,16 +23,16 @@ enum SystemModel {
                 return .available
             case .unavailable(let reason):
                 switch reason {
-                case .deviceNotEligible: return .unavailable("This Mac doesn't support Apple Intelligence.")
-                case .appleIntelligenceNotEnabled: return .unavailable("Turn on Apple Intelligence in System Settings to write summaries.")
-                case .modelNotReady: return .unavailable("On-device Apple Intelligence is still downloading or getting ready. Try again in a while.")
-                @unknown default: return .unavailable("On-device Apple Intelligence isn't available right now.")
+                case .deviceNotEligible: return .unavailable(String(localized: "This Mac doesn't support Apple Intelligence."))
+                case .appleIntelligenceNotEnabled: return .unavailable(String(localized: "Turn on Apple Intelligence in System Settings to write summaries."))
+                case .modelNotReady: return .unavailable(String(localized: "On-device Apple Intelligence is still downloading or getting ready. Try again in a while."))
+                @unknown default: return .unavailable(String(localized: "On-device Apple Intelligence isn't available right now."))
                 }
             }
         }
-        return .unavailable("Summaries need macOS 26 or later.")
+        return .unavailable(String(localized: "Summaries need macOS 26 or later."))
         #else
-        return .unavailable("This build of TimeScreen was made without support for on-device Apple Intelligence.")
+        return .unavailable(String(localized: "This build of TimeScreen was made without support for on-device Apple Intelligence."))
         #endif
     }
 
@@ -48,6 +48,10 @@ enum SystemModel {
 @available(macOS 26.0, *)
 struct SystemModelGenerator: TextGenerator {
     var contextSize: Int { SystemLanguageModel.default.contextSize }
+
+    var outputLanguage: SummaryOutputLanguage? {
+        SummaryLanguage.output(for: Bundle.main.preferredLocalizations.first) { SystemLanguageModel.default.supportsLocale($0) }
+    }
 
     func tokenCount(_ text: String) async -> Int {
         if #available(macOS 26.4, *), let count = try? await SystemLanguageModel.default.tokenCount(for: text) { return count }

@@ -3,14 +3,15 @@ import Foundation
 enum JumpTime {
     private static let pattern = try! NSRegularExpression(pattern: #"^(\d{1,2})(?::?(\d{2}))?\s*(am?|pm?)?$"#)
 
+    private static let noonWords: Set<String> = ["noon", "mediodia", "midi", "mittag", "正午", "中午"]
+    private static let midnightWords: Set<String> = ["midnight", "medianoche", "minuit", "mitternacht", "middernacht", "午夜", "零点", "真夜中"]
+
     /// Without am/pm, an hour from 1 to 12 could be either half of the day, so both are returned.
     static func candidates(_ text: String, on day: Date, calendar: Calendar = .current) -> [Date] {
-        let lowered = text.lowercased().replacingOccurrences(of: ".", with: "").trimmingCharacters(in: .whitespaces)
-        switch lowered {
-        case "noon": return time(12, 0, on: day, calendar).map { [$0] } ?? []
-        case "midnight": return time(0, 0, on: day, calendar).map { [$0] } ?? []
-        default: break
-        }
+        let lowered = text.lowercased().folding(options: .diacriticInsensitive, locale: nil)
+            .replacingOccurrences(of: ".", with: "").trimmingCharacters(in: .whitespaces)
+        if noonWords.contains(lowered) { return time(12, 0, on: day, calendar).map { [$0] } ?? [] }
+        if midnightWords.contains(lowered) { return time(0, 0, on: day, calendar).map { [$0] } ?? [] }
         let range = NSRange(lowered.startIndex..., in: lowered)
         guard let match = pattern.firstMatch(in: lowered, range: range) else { return [] }
         let group = { (i: Int) -> String? in Range(match.range(at: i), in: lowered).map { String(lowered[$0]) } }

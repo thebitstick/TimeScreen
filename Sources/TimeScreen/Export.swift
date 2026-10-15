@@ -18,7 +18,7 @@ enum Transcript {
         for frame in frames {
             out += "\n## \(time.string(from: frame.date)) · \(frame.app)"
             if !frame.title.isEmpty { out += " — \(frame.title)" }
-            if frame.display > 0 { out += " (display \(frame.display + 1))" }
+            if frame.display > 0 { out += " " + String(localized: "(display \(frame.display + 1))") }
             out += "\n"
             let text = (texts[frame.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if !text.isEmpty {
@@ -47,9 +47,9 @@ enum ExportFormat: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .mostCompatible: "Most Compatible (JPEG)"
-        case .highEfficiency: "High Efficiency (HEIC)"
-        case .bestQuality: "Best Quality (PNG)"
+        case .mostCompatible: String(localized: "Most Compatible (JPEG)")
+        case .highEfficiency: String(localized: "High Efficiency (HEIC)")
+        case .bestQuality: String(localized: "Best Quality (PNG)")
         }
     }
 
@@ -118,7 +118,7 @@ final class FormatAccessory: NSObject {
     init(onChange: @escaping (ExportFormat) -> Void = { _ in }) {
         self.onChange = onChange
         format = ExportFormat.saved
-        let label = NSTextField(labelWithString: "Image format:")
+        let label = NSTextField(labelWithString: String(localized: "Image format:"))
         popup.addItems(withTitles: ExportFormat.allCases.map(\.title))
         popup.selectItem(at: ExportFormat.allCases.firstIndex(of: format) ?? 0)
         let stack = NSStackView(views: [label, popup])
@@ -163,18 +163,18 @@ enum Exporter {
         run(panel, in: window) { url in
             do {
                 try ImageEncoding.write(root.appendingPathComponent(frame.path), as: accessory.format, to: url)
-                done("Saved image")
+                done(String(localized: "Saved image"))
             } catch {
-                done("Couldn't save the image")
+                done(String(localized: "Couldn't save the image"))
             }
         }
     }
 
     static func copyImage(of frame: Frame, root: URL) -> String {
-        guard let image = NSImage(contentsOf: root.appendingPathComponent(frame.path)) else { return "Couldn't copy the image" }
+        guard let image = NSImage(contentsOf: root.appendingPathComponent(frame.path)) else { return String(localized: "Couldn't copy the image") }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.writeObjects([image])
-        return "Copied image"
+        return String(localized: "Copied image")
     }
 
     static func saveText(of frame: Frame, text: String, window: NSWindow?, done: @escaping (String) -> Void) {
@@ -184,9 +184,9 @@ enum Exporter {
         run(panel, in: window) { url in
             do {
                 try Transcript.plainText(of: frame, text: text).write(to: url, atomically: true, encoding: .utf8)
-                done("Saved text")
+                done(String(localized: "Saved text"))
             } catch {
-                done("Couldn't save the text")
+                done(String(localized: "Couldn't save the text"))
             }
         }
     }
@@ -198,9 +198,9 @@ enum Exporter {
         run(panel, in: window) { url in
             do {
                 try Transcript.markdown(title: title, frames: frames, texts: texts).write(to: url, atomically: true, encoding: .utf8)
-                done("Exported \(frames.count) \(frames.count == 1 ? "result" : "results")")
+                done(String(localized: "Exported \(frames.count) results"))
             } catch {
-                done("Couldn't export")
+                done(String(localized: "Couldn't export"))
             }
         }
     }
@@ -210,8 +210,8 @@ enum Exporter {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
-        panel.prompt = "Export Here"
-        panel.message = "Choose where to put the exported folder."
+        panel.prompt = String(localized: "Export Here")
+        panel.message = String(localized: "Choose where to put the exported folder.")
         let accessory = FormatAccessory()
         panel.accessoryView = accessory.view
         run(panel, in: window) { parent in
@@ -220,9 +220,9 @@ enum Exporter {
             Task.detached(priority: .utility) {
                 do {
                     try writeDay(frames: frames, texts: texts, title: title, root: root, format: format, into: folder)
-                    await MainActor.run { done("Exported \(frames.count) frames") }
+                    await MainActor.run { done(String(localized: "Exported \(frames.count) screenshots")) }
                 } catch {
-                    await MainActor.run { done("Couldn't export") }
+                    await MainActor.run { done(String(localized: "Couldn't export")) }
                 }
             }
         }

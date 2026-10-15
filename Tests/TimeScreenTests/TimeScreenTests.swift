@@ -350,6 +350,11 @@ final class WindowInfoTests: XCTestCase {
         XCTAssertTrue(Windows.isPrivate(title: "Docs — Private Browsing", keywords: keywords))
         XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: keywords))
         XCTAssertFalse(Windows.isPrivate(title: "Docs", keywords: [""]))
+        let defaults = Prefs.defaultPrivateTitles.split(whereSeparator: \.isNewline).map(String.init)
+        for title in ["Nueva pestaña - Google Chrome (Incógnito)", "Nouvel onglet — Navigation privée", "Neuer Tab – Privater Modus - Firefox",
+                      "Nieuw tabblad - Privénavigatie", "新标签页 - Google Chrome (无痕)", "新規タブ - Google Chrome (シークレット)"] {
+            XCTAssertTrue(Windows.isPrivate(title: title, keywords: defaults), title)
+        }
     }
 }
 
@@ -391,6 +396,8 @@ final class JumpTimeTests: XCTestCase {
         XCTAssertEqual(hours("1530"), ["15:30"])
         XCTAssertEqual(hours("noon"), ["12:00"])
         XCTAssertEqual(hours("midnight"), ["00:00"])
+        for word in ["Mediodía", "midi", "MITTAG", "正午", "中午"] { XCTAssertEqual(hours(word), ["12:00"], word) }
+        for word in ["medianoche", "Minuit", "Mitternacht", "middernacht", "午夜", "真夜中"] { XCTAssertEqual(hours(word), ["00:00"], word) }
     }
 
     func testAmbiguousHoursOfferBothHalvesOfTheDay() {
@@ -1227,6 +1234,8 @@ final class StubGenerator: TextGenerator, @unchecked Sendable {
     private(set) var prompts: [String] = []
     private(set) var instructions: [String] = []
     var failFirstWith: Error?
+    var language: SummaryOutputLanguage?
+    var outputLanguage: SummaryOutputLanguage? { language }
     private var calls = 0
 
     init(contextSize: Int = 8192) { self.contextSize = contextSize }
@@ -1631,6 +1640,14 @@ final class RecognitionTests: XCTestCase {
         XCTAssertFalse(result.words.isEmpty)
     }
 
+    func testRecognizesChineseJapaneseAndAccentedText() {
+        for (drawn, expected) in [("东京塔和上海环球金融中心", "东京"), ("東京タワーでお寿司を食べました", "東京"),
+                                  ("Müller trifft Straße über café", "Müller"), ("El niño comió jalapeño", "niño")] {
+            let result = OCR.recognize(image(drawing: drawn))
+            XCTAssertTrue(result.text.contains(expected), "\(drawn) -> \(result.text)")
+        }
+    }
+
     func testRetriesOnceBeforeGivingUp() {
         var attempts = 0
         let recovered = OCR.recognize(image()) { _, _ in
@@ -1663,5 +1680,158 @@ final class RecognitionTests: XCTestCase {
         XCTAssertTrue(health.isFailing)
         health.record(failed: false)
         XCTAssertFalse(health.isFailing)
+    }
+}
+
+final class LocalizationTests: XCTestCase {
+    static let languages = ["es", "fr", "de", "nl", "zh-Hans", "ja"]
+
+    private func catalog() throws -> [String: [String: Any]] {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/Localizable.xcstrings")
+        let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        XCTAssertEqual(root["sourceLanguage"] as? String, "en")
+        return root["strings"] as! [String: [String: Any]]
+    }
+
+    private func placeholders(_ text: String) -> [String] {
+        let pattern = try! NSRegularExpression(pattern: "%(?:\\d\\$)?(?:lld|@|%)")
+        return pattern.matches(in: text, range: NSRange(text.startIndex..., in: text)).map { String(text[Range($0.range, in: text)!]) }.sorted()
+    }
+
+    private func texts(of localization: [String: Any]) -> [String] {
+        if let unit = localization["stringUnit"] as? [String: Any], let value = unit["value"] as? String { return [value] }
+        let plural = ((localization["variations"] as? [String: Any])?["plural"] as? [String: [String: Any]]) ?? [:]
+        return plural.values.compactMap { ($0["stringUnit"] as? [String: Any])?["value"] as? String }
+    }
+
+    func testEveryStringIsTranslatedIntoEveryLanguage() throws {
+        let strings = try catalog()
+        XCTAssertGreaterThan(strings.count, 250)
+        for (key, entry) in strings where entry["shouldTranslate"] as? Bool != false {
+            let localizations = entry["localizations"] as? [String: [String: Any]] ?? [:]
+            for language in Self.languages {
+                XCTAssertNotNil(localizations[language], "\(language) is missing: \(key)")
+            }
+        }
+    }
+
+    func testTranslationsKeepTheirPlaceholders() throws {
+        for (key, entry) in try catalog() where entry["shouldTranslate"] as? Bool != false {
+            let localizations = entry["localizations"] as? [String: [String: Any]] ?? [:]
+            for language in Self.languages {
+                guard let localization = localizations[language] else { continue }
+                for text in texts(of: localization) {
+                    let found = placeholders(text), wanted = placeholders(key)
+                    if localization["variations"] == nil {
+                        XCTAssertEqual(found, wanted, "\(language): \(key)")
+                    } else {
+                        XCTAssertTrue(Set(found).isSubset(of: Set(wanted)), "\(language): \(key)")
+                    }
+                }
+            }
+        }
+    }
+
+    func testNoStaleStrings() throws {
+        for (key, entry) in try catalog() {
+            XCTAssertNotEqual(entry["extractionState"] as? String, "stale", "unused string still in the catalog: \(key)")
+        }
+    }
+
+    func testPluralStringsHaveBothFormsWhereTheLanguageNeedsThem() throws {
+        for (key, entry) in try catalog() {
+            let localizations = entry["localizations"] as? [String: [String: Any]] ?? [:]
+            for (language, localization) in localizations {
+                guard let plural = (localization["variations"] as? [String: Any])?["plural"] as? [String: Any] else { continue }
+                XCTAssertNotNil(plural["other"], "\(language) needs an 'other' form: \(key)")
+                if ["en", "es", "fr", "de", "nl"].contains(language) { XCTAssertNotNil(plural["one"], "\(language) needs a 'one' form: \(key)") }
+            }
+        }
+    }
+}
+
+final class CJKSearchTests: XCTestCase {
+    func testSpacingOnlyTouchesRunsOfChineseAndJapanese() {
+        XCTAssertEqual(CJKText.spaced("Hello world"), "Hello world")
+        XCTAssertEqual(CJKText.spaced("Müller café"), "Müller café")
+        XCTAssertEqual(CJKText.spaced("寿司"), "寿\u{200B}司")
+        XCTAssertEqual(CJKText.spaced("Mac で 東京"), "Mac で 東\u{200B}京")
+        for sample in ["東京タワーでお寿司を食べました", "东京塔和上海环球金融中心", "Mac で東京へ", "plain text", "", "A 日本語 B"] {
+            XCTAssertEqual(CJKText.unspaced(CJKText.spaced(sample)), sample)
+        }
+    }
+
+    func testWordsInTheMiddleOfASentenceAreFound() async throws {
+        let db = try Database(path: NSTemporaryDirectory() + "cjk-\(UUID().uuidString).sqlite")
+        let japanese = "東京タワーでお寿司を食べました"
+        let chinese = "东京塔和上海环球金融中心"
+        let first = try await db.insert(date: Date(), app: "Notes", title: "", path: "a", text: japanese)
+        let second = try await db.insert(date: Date(), app: "Notes", title: "", path: "b", text: chinese)
+        for query in ["東京", "タワー", "寿司", "お寿司", "食べ", "\"お寿司を\"", "タワー 寿司"] {
+            let ids = try await db.search(query).map(\.frame.id)
+            XCTAssertEqual(ids, [first], query)
+        }
+        for query in ["东京", "上海", "金融", "塔", "环球 金融"] {
+            let ids = try await db.search(query).map(\.frame.id)
+            XCTAssertEqual(ids, [second], query)
+        }
+        let none = try await db.search("大阪")
+        XCTAssertTrue(none.isEmpty)
+        let texts = try await db.texts(for: [first, second])
+        XCTAssertEqual(texts[first], japanese)
+        XCTAssertEqual(texts[second], chinese)
+        let snippet = try await db.search("寿司").first?.snippet ?? ""
+        XCTAssertFalse(snippet.contains("\u{200B}"))
+        XCTAssertTrue(snippet.contains("寿司"))
+    }
+
+    func testEnglishAndAccentedSearchIsUnchanged() async throws {
+        let db = try Database(path: NSTemporaryDirectory() + "latin-\(UUID().uuidString).sqlite")
+        let id = try await db.insert(date: Date(), app: "Notes", title: "", path: "a", text: "Müller trifft café Straße")
+        for query in ["muller", "Café", "stra", "\"trifft café\""] {
+            let ids = try await db.search(query).map(\.frame.id)
+            XCTAssertEqual(ids, [id], query)
+        }
+    }
+}
+
+final class SummaryLanguageTests: XCTestCase {
+    func testWritesInTheAppLanguageWhenTheModelSupportsIt() {
+        XCTAssertEqual(SummaryLanguage.output(for: "es") { _ in true }?.name, "Spanish")
+        XCTAssertEqual(SummaryLanguage.output(for: "ja") { _ in true }?.name, "Japanese")
+        XCTAssertEqual(SummaryLanguage.output(for: "zh-Hans") { _ in true }?.name, "Simplified Chinese")
+        XCTAssertEqual(SummaryLanguage.output(for: "zh-Hant") { _ in true }?.name, "Traditional Chinese")
+        XCTAssertNil(SummaryLanguage.output(for: "en") { _ in true })
+        XCTAssertNil(SummaryLanguage.output(for: nil) { _ in true })
+        XCTAssertNil(SummaryLanguage.output(for: "nl") { _ in false })
+        for code in ["es", "fr", "de", "nl", "zh-Hans", "ja"] {
+            XCTAssertNotNil(SummaryLanguage.output(for: code) { _ in true }, code)
+        }
+    }
+
+    func testInstructionsAskForTheLanguageAndUseItsExample() {
+        let spanish = SummaryLanguage.output(for: "es") { _ in true }
+        let single = SummaryLanguage.instructions(SummaryPrompt.instructions, for: spanish)
+        XCTAssertTrue(single.hasPrefix("Always respond in Spanish. "))
+        XCTAssertTrue(single.contains("\"Leíste un correo sobre…\""))
+        XCTAssertFalse(single.contains("You read an email about"))
+        let rollup = SummaryLanguage.instructions(SummaryPrompt.rollupInstructions, for: spanish)
+        XCTAssertTrue(rollup.contains("\"Estuviste…\""))
+        XCTAssertEqual(SummaryLanguage.instructions(SummaryPrompt.instructions, for: nil), SummaryPrompt.instructions)
+    }
+
+    func testServiceAsksTheModelForThatLanguage() async throws {
+        let db = try Database(path: NSTemporaryDirectory() + "lang-\(UUID().uuidString).sqlite")
+        let id = try await db.insert(date: Date(), app: "Notes", title: "", path: "a", text: "some screen text to summarize")
+        let frame = try await db.frame(id: id)!
+        let stub = StubGenerator()
+        stub.language = SummaryLanguage.output(for: "ja") { _ in true }
+        _ = try await SummaryService(db: db, generator: stub).summarize(.frame(frame))
+        XCTAssertTrue(stub.instructions.last?.hasPrefix("Always respond in Japanese. ") == true)
+
+        let plain = StubGenerator()
+        _ = try await SummaryService(db: db, generator: plain).summarize(.frame(frame), regenerate: true)
+        XCTAssertEqual(plain.instructions.last, SummaryPrompt.instructions)
     }
 }

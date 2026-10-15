@@ -17,19 +17,24 @@ struct SummaryCard: View {
                 Text(title).font(.subheadline.bold())
                 Spacer()
                 if !isWorking {
-                    Button(record == nil ? "Summarize" : "Redo") {
+                    Button {
                         summarizer.start(window, title: title, regenerate: record != nil)
+                    } label: {
+                        record == nil ? Text("Summarize") : Text("Redo")
                     }
                     .buttonStyle(.plain).foregroundStyle(.tint)
                     .disabled(busyElsewhere)
-                    .help(pending > 1 ? "Takes about \(pending) steps: it writes the smaller summaries first." : "Write this summary with on-device Apple Intelligence.")
+                    .help(pending > 1 ? Text("Needs about \(pending) summaries: the smaller ones are written first.") : Text("Write this summary with on-device Apple Intelligence."))
                 }
             }
             if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
             if let job = summarizer.job, isWorking {
                 ProgressView(value: Double(job.done), total: Double(max(job.total, 1)))
                 HStack {
-                    Text(job.total > 1 ? "Writing… \(job.done) of \(job.total)" : "Writing…").font(.caption).foregroundStyle(.secondary)
+                    Group {
+                        if job.total > 1 { Text("Writing… \(job.done) of \(job.total)") } else { Text("Writing…") }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button("Cancel") { summarizer.cancel() }.buttonStyle(.plain).foregroundStyle(.tint).font(.caption)
                 }
@@ -41,7 +46,10 @@ struct SummaryCard: View {
             } else if record != nil, !isWorking {
                 Text("No text was recognized here, so there is nothing to summarize.").font(.caption).foregroundStyle(.secondary)
             } else if !isWorking, summarizer.errors[window] == nil {
-                Text(pending > 1 ? "Not written yet (about \(pending) steps)." : "Not written yet.").font(.caption).foregroundStyle(.secondary)
+                Group {
+                    if pending > 1 { Text("Not written yet (about \(pending) summaries to write).") } else { Text("Not written yet.") }
+                }
+                .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(12)
@@ -68,11 +76,11 @@ struct SummaryPanel: View {
         let hour = SummaryWindow.hour(containing: frame.date)
         let day = SummaryWindow.day(containing: frame.date)
         return [
-            ("This screenshot", frame.date.formatted(date: .omitted, time: .standard), .frame(frame)),
-            ("Around this time", SummaryPrompt.timeLabel(block.start, block.end), block),
-            ("This hour", SummaryPrompt.timeLabel(hour.start, hour.end), hour),
-            ("This day", frame.date.formatted(.dateTime.weekday(.wide).month().day()), day),
-            ("\(frame.app) today", nil, .app(frame.app, on: frame.date)),
+            (String(localized: "This screenshot"), frame.date.formatted(date: .omitted, time: .standard), .frame(frame)),
+            (String(localized: "Around this time"), SummaryPrompt.timeLabel(block.start, block.end), block),
+            (String(localized: "This hour"), SummaryPrompt.timeLabel(hour.start, hour.end), hour),
+            (String(localized: "This day"), frame.date.formatted(.dateTime.weekday(.wide).month().day()), day),
+            (String(localized: "\(frame.app) today"), nil, .app(frame.app, on: frame.date)),
         ]
     }
 
@@ -125,7 +133,7 @@ struct DayRecapView: View {
                     Label(message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                SummaryCard(title: "The day", window: window, record: dayRecord, pending: pending, summarizer: summarizer)
+                SummaryCard(title: String(localized: "The day"), window: window, record: dayRecord, pending: pending, summarizer: summarizer)
                 if hours.contains(where: { !$0.text.isEmpty }) {
                     Text("Hour by hour").font(.subheadline.bold())
                     ForEach(hours.filter { !$0.text.isEmpty }, id: \.key) { record in

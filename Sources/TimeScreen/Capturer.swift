@@ -8,8 +8,8 @@ enum CaptureError: Error, LocalizedError {
     case noDisplay, encode
     var errorDescription: String? {
         switch self {
-        case .noDisplay: return "No display available to capture"
-        case .encode: return "Could not encode the screenshot"
+        case .noDisplay: return String(localized: "No display available to capture")
+        case .encode: return String(localized: "Could not encode the screenshot")
         }
     }
 }
@@ -61,7 +61,7 @@ struct OCRResult {
 
 struct RecognitionHealth {
     static let limit = 3
-    static let warning = "Text recognition stopped working, so new screenshots can't be searched. Quit and reopen TimeScreen."
+    static var warning: String { String(localized: "Text recognition stopped working, so new screenshots can't be searched. Quit and reopen TimeScreen.") }
 
     private(set) var failures = 0
     var isFailing: Bool { failures >= Self.limit }
@@ -78,6 +78,7 @@ enum OCR {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
+        request.automaticallyDetectsLanguage = true
         do {
             do {
                 try perform(image, request)

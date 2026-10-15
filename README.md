@@ -27,19 +27,20 @@ Apple Intelligence (macOS 26 or later). Nothing is ever sent off your Mac.
 
 | Feature | What it does |
 |---|---|
-| **Capture** | Every display, every 2 to 60 seconds (5 by default), skipping frames where nothing changed. Stored as HEIC; screenshots older than a day are shrunk to save space |
+| **Capture** | Every display, every 2 to 60 seconds (5 by default), skipping screens where nothing changed. Stored as HEIC; screenshots older than a day are shrunk to save space |
 | **Timeline** | A full-screen filmstrip you scrub by scrolling anywhere. A colored bar shows which app you were in all day, with its icon. Pick days from a calendar, filter by app, or type a time (`3:45pm`, `15:30`, `noon`) into **Jump to time** |
 | **Search** | Search everything you've seen, filtered by date range or app. Words match from the start, `"quotes"` match an exact phrase and `-word` leaves one out. Matches are highlighted on the screenshot, and ↑ ↓ step through the results |
 | **Starred moments** | Press **S** (or use the star) to keep a screenshot forever. Starred ones are never deleted by retention or the size limit, show up as yellow marks on the activity bar, and are listed under the star in the top bar. A global **Star Moment** shortcut and a menu bar item star whatever is on screen now |
 | **Zoom** | Pinch, or ⌘+ ⌘− ⌘0, to zoom into a screenshot toward the pointer. Drag to select text, hold ⇧ and drag to move around |
 | **Summaries** | Short recaps of a screenshot, a 15-minute stretch, an hour, a day or one app's day, written by on-device Apple Intelligence (macOS 26 or later). See [Summaries](#summaries) |
 | **Text panel** | Press **T** to show the text recognized in the current screenshot beside it, with your search words highlighted |
-| **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the frame |
-| **Privacy** | Password managers are never recorded. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never record an app |
+| **Copy text** | Drag a box over a screenshot and press ⌘C to copy the words in it, or copy all the text in the screenshot |
+| **Privacy** | Password managers are never captured. Screens showing a private browsing window are skipped. Optional **Touch ID or password lock** on the timeline. One click to never capture an app, or pick apps in Settings ▸ Privacy |
 | **Export** | Save a screenshot or a whole day as a folder with a Markdown transcript, in your choice of **Most Compatible** (JPEG), **High Efficiency** (HEIC) or **Best Quality** (PNG, lossless; screenshots are stored compressed, so it keeps what is stored without losing more). Copy an image, or save its text. Search results export as a transcript too |
-| **Delete** | Delete the frame you're looking at, the last 5, 15 or 60 minutes (also from the menu bar), or a whole day |
+| **Delete** | Delete the screenshot you're looking at, the last 5, 15 or 60 minutes (also from the menu bar), or a whole day |
 | **Storage** | Keep history from 7 days to forever, with a size limit (20 GB by default) that deletes the oldest screenshots first |
 | **Power** | Optionally pauses on battery power or in Low Power Mode, and always when less than 1 GB of disk space is free |
+| **Languages** | English, Spanish, French, German, Dutch, Simplified Chinese and Japanese, following your Mac's language. Chinese and Japanese text on screen is recognized and searchable, and summaries are written in the app's language. The translations were written by an AI and have not been reviewed by native speakers; corrections are welcome |
 | **Updates** | Updates itself with [Sparkle](https://sparkle-project.org); updates are signed |
 
 <p align="center">
@@ -89,11 +90,12 @@ later. A welcome window walks you through allowing **Screen Recording**.
 | Action | How |
 |---|---|
 | Open the timeline | **⌥⌘T** (changeable, or removable, in Settings ▸ Shortcuts), the menu bar icon, or hold **⌘⇧** and scroll |
-| Move | Scroll anywhere, or **← →** (**⇧** for 10 frames). **⌥← ⌥→** jump to the previous or next app switch, **⌘← ⌘→** (or **Home** and **End**) to the first and last frame |
+| Move | Scroll anywhere, or **← →** (**⇧** for 10 screenshots). **⌥← ⌥→** jump to the previous or next app switch, **⌘← ⌘→** (or **Home** and **End**) to the first and last screenshot |
 | Search | **⌘F** or **/** focuses the search box. **↑ ↓** step through results and **Return** hands focus back |
 | Text and summaries | **T** shows or hides the side panel, which has a Text tab and a Summary tab |
 | Zoom | Pinch, or **⌘+ ⌘− ⌘0**. Drag to select text, hold **⇧** and drag to move |
 | Star | **S** stars or unstars the current screenshot |
+| Shortcuts | **?** or the keyboard button in the top bar lists every shortcut |
 | Close | **Esc** |
 | Pause | Menu bar ▸ Pause Recording, or Pause For 15 minutes, 1 hour or 8 hours. You can also set a global **Pause / Resume** shortcut in Settings ▸ Shortcuts, which plays a short sound |
 
@@ -104,7 +106,7 @@ icon, which macOS needs for it to bring those windows to the front.
 ## Privacy and safety
 
 - **Nothing leaves your Mac.** The only network traffic is Sparkle checking GitHub for a new version, which you can turn off in
-  Settings ▸ General. Summaries use Apple's **on-device** model only; the cloud model macOS 27 also offers is never used.
+  Settings ▸ General. Summaries use **on-device** Apple Intelligence only; the cloud model macOS 27 also offers is never used.
 - Summaries can be wrong, and a screen with little text gives thin ones. They are written from the recognized text alone, never from
   the image, so check the screenshot for anything that matters.
 - Screenshots and the search index are stored **unencrypted** in `~/Library/Application Support/TimeScreen`. Turn on FileVault

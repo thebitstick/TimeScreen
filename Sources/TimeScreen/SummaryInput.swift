@@ -162,3 +162,42 @@ enum SummaryPrompt {
         "App: \(app)\nDay: \(day)\n\nText seen in this app across the day (repeated lines removed):\n\(text)\n\nSummarize what the person did in this app."
     }
 }
+
+struct SummaryOutputLanguage: Equatable {
+    let name: String
+    let example: String
+    let rollupExample: String
+}
+
+enum SummaryLanguage {
+    private static let examples: [String: (example: String, rollup: String)] = [
+        "es": ("Leíste un correo sobre…", "Estuviste…"),
+        "fr": ("Vous avez lu un e-mail sur…", "Vous avez…"),
+        "de": ("Du hast eine E-Mail über … gelesen", "Du hast…"),
+        "nl": ("Je las een e-mail over…", "Je…"),
+        "zh": ("你阅读了一封关于……的邮件", "你……"),
+        "ja": ("あなたは…についてのメールを読みました", "あなたは…"),
+    ]
+
+    /// The language to ask the model to write in: the one the app is shown in, when the model supports it and it isn't English.
+    /// The model follows the language of the example sentence more than a request, so each language brings its own example.
+    static func output(for localization: String?, supports: (Locale) -> Bool) -> SummaryOutputLanguage? {
+        guard let code = localization, supports(Locale(identifier: code)) else { return nil }
+        let language = Locale.Language(identifier: code)
+        guard let languageCode = language.languageCode?.identifier, let sample = examples[languageCode] else { return nil }
+        let name: String
+        if languageCode == "zh" {
+            name = language.script?.identifier == "Hant" ? "Traditional Chinese" : "Simplified Chinese"
+        } else {
+            name = Locale(identifier: "en").localizedString(forLanguageCode: languageCode) ?? languageCode
+        }
+        return SummaryOutputLanguage(name: name, example: sample.example, rollupExample: sample.rollup)
+    }
+
+    static func instructions(_ base: String, for language: SummaryOutputLanguage?) -> String {
+        guard let language else { return base }
+        return "Always respond in \(language.name). "
+            + base.replacingOccurrences(of: "\"You read an email about…\"", with: "\"\(language.example)\"")
+                  .replacingOccurrences(of: "\"You…\"", with: "\"\(language.rollupExample)\"")
+    }
+}

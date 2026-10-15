@@ -41,6 +41,19 @@ enum Prefs {
         InPrivate
         Private Browsing
         Private Window
+        Incógnito
+        Navegación privada
+        Navigation privée
+        Inkognito
+        Privater Modus
+        Privénavigatie
+        Privé browsen
+        无痕
+        隐身
+        隐私浏览
+        シークレット
+        プライベートブラウズ
+        プライベートブラウジング
         """
 
     static func register() {
@@ -75,16 +88,32 @@ enum Prefs {
     }
 
     static func excludedBundleIDs() -> Set<String> {
-        let raw = UserDefaults.standard.string(forKey: excludedApps) ?? ""
-        return Set(raw.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        Set(ExcludedApps.parse(UserDefaults.standard.string(forKey: excludedApps) ?? ""))
+    }
+}
+
+enum ExcludedApps {
+    static func parse(_ raw: String) -> [String] {
+        var seen = Set<String>()
+        return raw.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    static func adding(_ bundleID: String, to raw: String) -> String {
+        let current = parse(raw)
+        return current.contains(bundleID) ? raw : (current + [bundleID]).joined(separator: "\n")
+    }
+
+    static func removing(_ bundleID: String, from raw: String) -> String {
+        parse(raw).filter { $0 != bundleID }.joined(separator: "\n")
     }
 }
 
 extension Prefs {
     static func excludeApp(_ bundleID: String) {
-        guard !excludedBundleIDs().contains(bundleID) else { return }
         let current = UserDefaults.standard.string(forKey: excludedApps) ?? ""
-        UserDefaults.standard.set(current.trimmingCharacters(in: .whitespacesAndNewlines) + "\n" + bundleID, forKey: excludedApps)
+        UserDefaults.standard.set(ExcludedApps.adding(bundleID, to: current), forKey: excludedApps)
     }
 
     static func privateTitleKeywords() -> [String] {

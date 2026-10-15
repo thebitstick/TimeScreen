@@ -36,6 +36,8 @@ Bundle identifier: `rip.bitstick.TimeScreen` (the author's namespace is `rip.bit
 | `Scripts/publish-appcast.sh` | signs a release zip and uploads the Sparkle appcast |
 | `Scripts/make-demo-data.sh`, `Scripts/demo-data/` | draws a fictional day of screenshots, runs the real OCR and fills a data folder, for README screenshots |
 | `Scripts/make-icon.swift` | draws `Resources/AppIcon.icns`; run from the repo root |
+| `Scripts/extract-strings.sh`, `Resources/Localizable.xcstrings` | the string catalog (English plus six translations) and the script that refreshes its keys from the code |
+| `CJKText.swift`, `DeleteText.swift`, `ShortcutsPopover.swift` | per-character indexing so Chinese and Japanese are searchable; the shared delete-confirmation wording; the keyboard shortcut sheet |
 
 ## Commands
 
@@ -98,7 +100,7 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - **The menu bar icon** comes from `MenuBarState` (permission, then paused, then private-window skip, then error).
 - **Why capture stops** is one model, `SkipReason` (private window, battery power, Low Power Mode, disk almost full). It drives
   the menu status line and the menu bar icon (`MenuBarState`). Power and disk checks run before any window or capture work.
-- **Never record this app** (the ⃠ button in the timeline) uses the frame's stored bundle identifier, falling back to
+- **Never capture this app** (the ⃠ button in the timeline, and the app list in Settings ▸ Privacy) uses the frame's stored bundle identifier, falling back to
   `AppIcons.bundleIdentifier(for:)` for old frames, and the dialog says so if neither works.
 - **Search results** navigate with ↑ ↓ from the search field (`moveResult`) and Return hands focus back to the timeline.
 - **Export** (`Export.swift`): panels are presented as sheets on the overlay window, because the overlay sits above normal
@@ -117,7 +119,7 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
   after the timeline closed; it is now capped at 64 MB by cost and emptied when the timeline closes (`Thumbnails.clear()`).
   Check with `footprint <pid>`; a large IOSurface line means images are being held.
 - **Cadence:** captures slow to every 15 s after a minute without input and every 30 s after five (`CaptureCadence`), and the loop
-  wakes early when you return. Settings ▸ Screen ▸ When away turns it off.
+  wakes early when you return. Settings ▸ Capture ▸ When away turns it off.
 - **Search syntax** lives in `SearchQuery` (words are prefixes, `"phrases"` are exact, `-word` is `NOT`); the same parse feeds the
   FTS expression and the highlight terms, so excluded words are never highlighted. Odd input must never make a search throw.
 - **Zoom** (`PreviewZoom`): the zoomed image is clipped to its unscaled frame; a drag always selects text, and when zoomed ⇧-drag pans (using global coordinates, since
@@ -159,6 +161,28 @@ swift Scripts/make-icon.swift    # regenerate the icon, then iconutil (see the s
 - Frames store both the app's display name and its bundle identifier (`bundle`; frames from before that column existed are
   backfilled at launch from what is known about the name). Icons and never-record resolve through the bundle identifier when
   there is one and fall back to matching the name against installed applications.
+
+- **Localization** (`Resources/Localizable.xcstrings`: English plus Spanish, French, German, Dutch, Simplified Chinese and Japanese).
+  Every string a user can read goes through the catalog. In SwiftUI pass literals (`Text("…")`, `Button("…")`, `.help("…")`, `Note("…")`)
+  so the compiler extracts them; in code that builds a `String` (alerts, panels, status lines, errors) use `String(localized: "…")`; for a
+  count use an interpolated `%lld` with plural variations (`one`/`other`), never `n == 1 ? "x" : "xs"`. SwiftUI does not localize a string
+  that comes out of a `String` variable, a `??`, or the result of an `if`: branch with separate `Text("…")` literals or call
+  `String(localized:)`. After changing a string run `Scripts/extract-strings.sh` (compiler-based; it marks keys the code no longer uses as
+  stale), then add all six translations. `LocalizationTests` fail when a string lacks a language, a placeholder differs from the English, a
+  plural lacks a form, or a stale key remains. `Scripts/build-app.sh` compiles the catalog with `xcstringstool` into `.lproj` folders and
+  `Info.plist` lists `CFBundleLocalizations`. Check a language on a throwaway copy with `-AppleLanguages "(ja)"`, and a Settings pane with
+  `-settingsTab 0…5` (the window remembers its last pane). Capture only that copy's own window (`screencapture -l <id>`).
+  Wording to keep consistent: **screenshot** (never "frame" in anything a user reads), **capture** for taking screenshots and
+  **recording** for the on/off state, **front app**, **summary** (a day's is a **recap**), **on-device Apple Intelligence**. Translations
+  use Apple's macOS terms and the informal "tú", "du" and "je" (French uses "vous"). Keep long labels wrapping (`fixedSize(horizontal:
+  false, vertical: true)` on toggles) because German and French run long, and keep the Jump to time placeholder short.
+- **Chinese and Japanese:** Vision only reads them with `automaticallyDetectsLanguage` (the default recognizes English alone), which
+  changes nothing for the other languages. SQLite's index treats an unbroken run of those characters as one word, so `CJKText` indexes
+  each character on its own, with a zero-width separator that is removed whenever text is read back (`texts(for:)`, snippets) and
+  applied to queries (`SearchQuery`). New code that reads `frames_fts.text` must call `CJKText.unspaced`.
+- **Summaries are written in the app's language** when the model supports it (`SummaryLanguage`): the instructions say "Always respond
+  in <language>" and swap the English example sentence for one in that language, because the model follows the example's language far
+  more than a request (measured: an appended "write in Spanish" was ignored, the localized example worked).
 
 ## Releasing
 

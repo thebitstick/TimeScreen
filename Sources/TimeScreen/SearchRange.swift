@@ -7,11 +7,11 @@ enum SearchRange: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .anyTime: "Any time"
-        case .today: "Today"
-        case .week: "Past 7 days"
-        case .month: "Past 30 days"
-        case .selectedDay: "Selected day"
+        case .anyTime: String(localized: "Any time")
+        case .today: String(localized: "Today")
+        case .week: String(localized: "Past 7 days")
+        case .month: String(localized: "Past 30 days")
+        case .selectedDay: String(localized: "Selected day")
         }
     }
 

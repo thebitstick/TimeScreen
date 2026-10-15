@@ -6,10 +6,10 @@ enum SkipReason: Equatable {
 
     var message: String {
         switch self {
-        case .privateWindow: "Not recording: private window open"
-        case .onBattery: "Not recording: on battery power"
-        case .lowPowerMode: "Not recording: Low Power Mode is on"
-        case .diskAlmostFull: "Not recording: the disk is almost full"
+        case .privateWindow: String(localized: "Not recording: private window open")
+        case .onBattery: String(localized: "Not recording: on battery power")
+        case .lowPowerMode: String(localized: "Not recording: Low Power Mode is on")
+        case .diskAlmostFull: String(localized: "Not recording: the disk is almost full")
         }
     }
 

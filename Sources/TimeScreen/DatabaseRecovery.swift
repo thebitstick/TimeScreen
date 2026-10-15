@@ -23,15 +23,14 @@ enum DatabaseRecovery {
         if (try? fm.createDirectory(at: frames, withIntermediateDirectories: true)) != nil {
             if fm.fileExists(atPath: index.path), !isHealthy(path: index.path, fullCheckLimit: fullCheckLimit) {
                 let saved = quarantine(index, now: now)
-                notice = "TimeScreen's search index was damaged. The old index was saved as \(saved.lastPathComponent) and a new one was started. " +
-                    "Your screenshots are untouched, but older ones won't appear in search."
+                notice = String(localized: "TimeScreen's search index was damaged. The old index was saved as \(saved.lastPathComponent) and a new one was started. Your screenshots are untouched, but older ones won't appear in search.")
             }
             if let database = try? Database(path: index.path) {
                 return OpenedStore(database: database, framesRoot: frames, notice: notice)
             }
             if fm.fileExists(atPath: index.path) {
                 let saved = quarantine(index, now: now)
-                notice = "TimeScreen couldn't open its search index. It was saved as \(saved.lastPathComponent) and a new one was started."
+                notice = String(localized: "TimeScreen couldn't open its search index. It was saved as \(saved.lastPathComponent) and a new one was started.")
                 if let database = try? Database(path: index.path) {
                     return OpenedStore(database: database, framesRoot: frames, notice: notice)
                 }
@@ -43,8 +42,7 @@ enum DatabaseRecovery {
         try? fm.createDirectory(at: fallbackFrames, withIntermediateDirectories: true)
         let database = (try? Database(path: fallback.appendingPathComponent("index.sqlite").path)) ?? (try! Database(path: ":memory:"))
         return OpenedStore(database: database, framesRoot: fallbackFrames,
-                           notice: "TimeScreen couldn't open its data folder, so it is recording to a temporary location that macOS may clear. " +
-                               "Check that \(support.path) is writable.")
+                           notice: String(localized: "TimeScreen couldn't open its data folder, so it is recording to a temporary location that macOS may clear. Check that \(support.path) is writable."))
     }
 
     static func isHealthy(path: String, fullCheckLimit: Int64 = DatabaseRecovery.fullCheckLimit) -> Bool {

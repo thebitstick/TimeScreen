@@ -17,6 +17,7 @@ cp "$BIN_DIR/TimeScreen" "$APP/Contents/MacOS/TimeScreen"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp THIRD-PARTY-NOTICES.md LICENSE.md "$APP/Contents/Resources/"
+xcrun xcstringstool compile Resources/Localizable.xcstrings --output-directory "$APP/Contents/Resources"
 case "$IDENTITY" in
     "Apple Development:"*)
         # A development build: Sparkle still reports new versions but never installs one by itself, because a release
